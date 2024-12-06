@@ -1,0 +1,31 @@
+[toolchain]
+anchor_version = "0.30.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+staking = "DsxbTv2TFuXz656i7SeqWLt2wpgVfBccLyFMA3i2tvBG"
+token = "Bj6HMrmfUJ4S23SSXvM5swMBdTQ5pjafQcCPe27wJXGA"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+init-staking = "node_modules/.bin/ts-node scripts/staking.initialize.ts"
+test = "node_modules/.bin/jest --preset ts-jest"
+
+[test]
+startup_wait = 5000
+shutdown_wait = 2000
+upgradeable = false
+
+[test.validator]
+bind_address = "127.0.0.1"
+ledger = "test-ledger"
+rpc_port = 8899
