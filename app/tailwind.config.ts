@@ -7,7 +7,13 @@ const config: Config = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        reward: '#151E25',
+        'stake-bg-from': '#82AC7E',
+        'stake-bg-to': '#26454B',
+      },
+    },
   },
   plugins: [require('daisyui')],
 }

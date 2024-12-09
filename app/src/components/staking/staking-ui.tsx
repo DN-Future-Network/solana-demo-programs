@@ -11,7 +11,7 @@ function Stake(props: Readonly<StakingProps>) {
 
   return (
     <button
-      className="btn btn-primary w-full mb-6"
+      className="btn bg-black text-white w-full mb-6"
       onClick={() => depositMutation.mutateAsync(new BN(123456))}
       disabled={depositMutation.isPending}
     >
@@ -43,7 +43,7 @@ function ClaimReward(props: Readonly<StakingProps>) {
 
   return (
     <button
-      className="btn btn-primary w-full mb-6"
+      className="btn bg-black text-white w-full"
       onClick={() => claimRewardMutation.mutateAsync()}
       disabled={claimRewardMutation.isPending}
     >
@@ -105,7 +105,7 @@ function UserTokenBalance({ mint, address }: { mint: PublicKey | undefined; addr
   return (
     <div className="flex justify-between items-center mb-6">
       <div>Your Token Balance</div>
-      <span className="font-bold">{stakeToken?.account.data.parsed.info.tokenAmount.uiAmountString} NPG</span>
+      <span className="font-bold text-black">{stakeToken?.account.data.parsed.info.tokenAmount.uiAmountString} NPG</span>
     </div>
   )
 }
@@ -119,7 +119,7 @@ function UserStakedBalance(props: Readonly<StakingProps>) {
   return (
     <div className="flex justify-between items-center mb-6">
       <div>Your Token Staked</div>
-      <span className="font-bold">{new BN(userInfo?.stakedAmount).toString()} NPG</span>
+      <span className="font-bold text-black">{new BN(userInfo?.stakedAmount).toString()} NPG</span>
     </div>
   )
 }
@@ -140,8 +140,8 @@ export function StakePanel(props: Readonly<StakingProps>) {
   const [activeStakeTab, setActiveStakeTab] = useState(true)
 
   return (
-    <div className="w-full lg:w-1/2 bg-gradient-to-b from-green-700 to-green-900 p-6 rounded-lg mr-4">
-      <h2 className="text-xl font-bold mb-4">Single Stake</h2>
+    <div className="bg-gradient-to-b from-stake-bg-from to-stake-bg-to p-8 pr-20 rounded-3xl h-full">
+      <h2 className="text-xl font-bold mb-4 text-black">Single Stake</h2>
       <p className="text-sm text-gray-300 mb-6">Stake Your NPG Tokens</p>
 
       <div
@@ -164,7 +164,7 @@ export function StakePanel(props: Readonly<StakingProps>) {
         </div>
       </div>
 
-      <input type="number" placeholder="Enter The Amount" className="input input-bordered w-full mb-4" />
+      <input type="number" placeholder="Enter The Amount" className="input input-bordered w-full mb-4 bg-transparent focus:outline-none" />
       {activeStakeTab ? <Stake address={props.address} /> : <UnStake address={props.address} />}
 
       <UserStakeInfo address={props.address} />
@@ -179,7 +179,7 @@ export function RewardsPanel(props: Readonly<StakingProps>) {
   const userInfo = useMemo(() => accountQuery.data ?? null, [accountQuery.data])
 
   return (
-    <div className="w-full lg:w-1/2 bg-gradient-to-b from-gray-800 to-gray-900 p-6 rounded-lg">
+    <div className="bg-reward p-8 rounded-3xl h-full -ml-10 flex flex-col justify-between">
       <h2 className="text-xl font-bold mb-4">Your Unclaimed Rewards</h2>
       <p className="text-2xl font-bold text-white mb-6">{new BN(userInfo?.pendingReward).toString()} NPG</p>
 
