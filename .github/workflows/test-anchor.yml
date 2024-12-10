@@ -39,12 +39,14 @@ jobs:
       - name: Check solana config
         run: solana config get
 
-      - run: |
+      - name: Run build program
+        run: |
           cd anchor
           anchor build
         shell: bash
 
-      - run: |
+      - name: Run test
+        run: |
           cd anchor
           anchor test
         shell: bash

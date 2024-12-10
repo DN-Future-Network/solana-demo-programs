@@ -171,7 +171,7 @@ describe('staking', () => {
   describe('createStakingPool', () => {
     it('Create successfully', async () => {
       await programStaking.methods
-        .createStakingPool(
+        .initialize(
           STAKING_MAX_DEPOSIT_AMOUNT_PER_USER,
           STAKING_INTEREST_RATE.toNumber(),
           STAKING_START_TIME,
