@@ -8,7 +8,7 @@ export default function StakingFeature() {
 
   return publicKey ? (
     <AppHero title="Staking" subtitle={''}>
-      <div className="grid grid-cols-2 justify-center items-center text-white rounded-lg shadow-lg">
+      <div className="grid grid-cols-2 justify-center text-white rounded-lg shadow-lg">
         <StakePanel address={publicKey} />
         <RewardsPanel address={publicKey} />
       </div>

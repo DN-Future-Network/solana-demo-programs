@@ -23,36 +23,26 @@ export function useStakingProgram() {
   const program = getStakingProgram(provider)
   const [stakingInfoPDA, stakingInfoBump] = PublicKey.findProgramAddressSync([Buffer.from(STAKING_SEED)], programId)
 
-  const mintAccount = 'CwpkwVT1992RexNANYYDj2japH9YSVJ4ToPSkFmHVezA' // import.meta.env.VITE_SOLANA_NETWORK
-  const mint = new PublicKey(mintAccount)
-
-  const [stakingVaultATA] = PublicKey.findProgramAddressSync(
-    [Buffer.from(STAKING_VAULT), stakingInfoPDA.toBuffer(), mint.toBuffer()],
-    programId,
-  )
-
-  const getStakingInfo = useQuery({
-    queryKey: ['staking', 'fetch', { cluster }],
-    queryFn: () => program.account.stakingInfo.fetch(stakingInfoPDA),
-  })
-
   const getProgramAccount = useQuery({
     queryKey: ['get-program-account', { cluster }],
     queryFn: () => connection.getParsedAccountInfo(programId),
   })
 
-  // const createPool = useMutation({
-  //   mutationKey: ['staking', 'create-pool', { cluster }],
-  //   mutationFn: (keypair: Keypair) =>
-  //     program.methods.createStakingPool(
+  const getStakingInfo = useQuery({
+    queryKey: ['staking', 'fetch-info', { cluster }],
+    queryFn: () => program.account.stakingInfo.fetch(stakingInfoPDA),
+  })
 
-  //     ).accounts({ staking: keypair.publicKey }).signers([keypair]).rpc(),
-  //   onSuccess: (signature: string) => {
-  //     transactionToast(signature)
-  //     return accounts.refetch()
-  //   },
-  //   onError: () => toast.error('Failed to initialize account'),
-  // })
+  const stakingVaultATA = useMemo(() => {
+    if (!getStakingInfo.data) {
+      return null
+    }
+
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from(STAKING_VAULT), stakingInfoPDA.toBuffer(), getStakingInfo.data.tokenMintAddress.toBuffer()],
+      programId,
+    )[0]
+  }, [getStakingInfo.data, stakingInfoPDA, programId])
 
   return {
     program,
@@ -62,18 +52,24 @@ export function useStakingProgram() {
     stakingInfoPDA,
     stakingInfoBump,
     stakingVaultATA,
-    mint,
   }
 }
 
 export function useStakingProgramAccount({ account }: { account: PublicKey }) {
   const { cluster } = useCluster()
   const transactionToast = useTransactionToast()
-  const { program, programId, mint, stakingInfoPDA, stakingInfoBump, stakingVaultATA } = useStakingProgram()
-  const [userTokenAccount] = PublicKey.findProgramAddressSync(
-    [account.toBytes(), TOKEN_2022_PROGRAM_ID.toBytes(), mint.toBytes()],
-    ASSOCIATED_TOKEN_PROGRAM_ID,
-  )
+  const { program, programId, getStakingInfo, stakingInfoPDA, stakingInfoBump, stakingVaultATA } = useStakingProgram()
+  const userTokenAccount = useMemo(() => {
+    if (!getStakingInfo.data) {
+      return null
+    }
+
+    return PublicKey.findProgramAddressSync(
+      [account.toBytes(), TOKEN_2022_PROGRAM_ID.toBytes(), getStakingInfo.data.tokenMintAddress.toBytes()],
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    )[0]
+  }, [account, getStakingInfo.data])
+
   const [userPDAAccount] = PublicKey.findProgramAddressSync([Buffer.from(USER_SEED), account.toBuffer()], programId)
 
   const accountQuery = useQuery({
@@ -84,8 +80,12 @@ export function useStakingProgramAccount({ account }: { account: PublicKey }) {
   const depositMutation = useMutation({
     mutationKey: ['staking', 'deposit', { cluster, account }],
     mutationFn: (amount: BN) => {
+      if (!getStakingInfo.data || !stakingVaultATA || !userTokenAccount) {
+        throw new Error()
+      }
+
       const accountData = {
-        mintAccount: mint,
+        mintAccount: getStakingInfo.data.tokenMintAddress,
         staker: account,
         fromAssociatedTokenAccount: userTokenAccount,
         stakingInfo: stakingInfoPDA,
@@ -105,8 +105,12 @@ export function useStakingProgramAccount({ account }: { account: PublicKey }) {
   const unStakeMutation = useMutation({
     mutationKey: ['staking', 'unstake', { cluster, account }],
     mutationFn: () => {
+      if (!getStakingInfo.data || !stakingVaultATA || !userTokenAccount) {
+        throw new Error()
+      }
+
       const accountData = {
-        mintAccount: mint,
+        mintAccount: getStakingInfo.data.tokenMintAddress,
         staker: account,
         toAssociatedTokenAccount: userTokenAccount,
         stakingInfo: stakingInfoPDA,
@@ -126,8 +130,12 @@ export function useStakingProgramAccount({ account }: { account: PublicKey }) {
   const claimRewardMutation = useMutation({
     mutationKey: ['staking', 'claim-reward', { cluster, account }],
     mutationFn: () => {
+      if (!getStakingInfo.data || !stakingVaultATA || !userTokenAccount) {
+        throw new Error()
+      }
+
       const accountData = {
-        mintAccount: mint,
+        mintAccount: getStakingInfo.data.tokenMintAddress,
         staker: account,
         toAssociatedTokenAccount: userTokenAccount,
         stakingInfo: stakingInfoPDA,
