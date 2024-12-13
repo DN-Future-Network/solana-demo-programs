@@ -29,16 +29,16 @@ pub mod staking {
         );
     }
 
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-        return deposit::deposit(ctx, amount);
+    pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
+        return stake::stake(ctx, amount);
     }
 
-    pub fn withdraw(ctx: Context<Withdraw>, bump: u8) -> Result<()> {
-        return withdraw::withdraw(ctx, bump);
+    pub fn unstake(ctx: Context<Unstake>, bump: u8, amount: u64) -> Result<()> {
+        return unstake::unstake(ctx, bump, amount);
     }
 
     pub fn claim_reward(ctx: Context<ClaimReward>, bump: u8) -> Result<()> {
-        return withdraw::claim_reward(ctx, bump);
+        return unstake::claim_reward(ctx, bump);
     }
 
     pub fn deposit_reward(ctx: Context<DepositReward>, amount: u64) -> Result<()> {

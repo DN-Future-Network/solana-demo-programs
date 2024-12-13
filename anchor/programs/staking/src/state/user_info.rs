@@ -24,7 +24,7 @@ impl UserInfo {
             return 0;
         }
 
-        let elapsed_time = (min_time - self.last_claimed_reward_at) as u64 / 1000;
+        let elapsed_time = (min_time - self.last_claimed_reward_at) as u64;
         let reward = (self.staked_amount * elapsed_time * (staking_info.interest_rate as u64))
             / (3600 * 24 * 365 * 10000);
         self.pending_reward + reward

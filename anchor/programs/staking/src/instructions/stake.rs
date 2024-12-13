@@ -9,48 +9,34 @@ use crate::errors::StakingError;
 use crate::state::StakingInfo;
 use crate::state::UserInfo;
 
-pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
     let staking_info = &mut ctx.accounts.staking_info;
     let user_info = &mut ctx.accounts.user_info;
     let now = Clock::get().unwrap().unix_timestamp;
-    msg!(
-        "Expected from_associated_token_account: {}",
-        ctx.accounts.from_associated_token_account.key()
-    );
 
     // get time and compare with start and end time
-    if staking_info.start_time > now {
-        msg!("current time: {}", now);
-        msg!("start time: {}", staking_info.start_time);
-        return Err(StakingError::StakingNotStarted.into());
-    }
+    require!(
+        now >= staking_info.start_time,
+        StakingError::StakingNotStarted
+    );
+    require!(now <= staking_info.end_time, StakingError::StakingEnded);
+    require!(amount > 0, StakingError::TokenAmountTooSmall);
 
-    if staking_info.end_time < now {
-        msg!("end time: {}", staking_info.end_time);
-        msg!("current time: {}", now);
-        return Err(StakingError::StakingEnded.into());
-    }
-
-    // limit the token_amount per address
-    if staking_info.max_token_amount_per_address < (user_info.staked_amount + amount) {
-        msg!(
-            "max token amount per address: {}",
-            staking_info.max_token_amount_per_address
-        );
-        msg!(
-            "token amount to deposit: {}",
-            user_info.staked_amount + amount
-        );
-        return Err(StakingError::ReachMaxDeposit.into());
-    }
+    // limit the token amount per address
+    require!(
+        user_info.staked_amount + amount <= staking_info.max_token_amount_per_address,
+        StakingError::ReachMaxStake
+    );
 
     // Update pending reward
     user_info.pending_reward = user_info.accumulated_reward(&staking_info);
 
-    // Update the user info
+    // Update the stake info
     user_info.holder = ctx.accounts.staker.key();
-    user_info.staked_amount = user_info.staked_amount + amount;
+    user_info.staked_amount += amount;
     user_info.last_claimed_reward_at = now;
+
+    staking_info.total_staked += amount;
 
     // Transfer token to staking vault
     let cpi_accounts = TransferChecked {
@@ -66,20 +52,30 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
     transfer_checked(cpi_context, amount, ctx.accounts.mint_account.decimals)?;
-    msg!("Deposit successfully.");
+    msg!("Stake successfully.");
 
     Ok(())
 }
 
 #[derive(Accounts)]
-pub struct Deposit<'info> {
+pub struct Stake<'info> {
     #[account(mut)]
     pub mint_account: InterfaceAccount<'info, Mint>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        associated_token::mint = mint_account,
+        associated_token::authority = staker,
+        associated_token::token_program = token_program
+    )]
     pub from_associated_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        associated_token::mint = mint_account,
+        associated_token::authority = staking_info,
+        associated_token::token_program = token_program
+    )]
     pub staking_vault: InterfaceAccount<'info, TokenAccount>,
 
     #[account(

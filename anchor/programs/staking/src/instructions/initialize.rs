@@ -1,13 +1,13 @@
-use anchor_lang::{prelude::*, system_program};
+use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
-use crate::constants::{RENT_MINIMUM, STAKING_SEED, STAKING_VAULT};
+use crate::constants::STAKING_SEED;
+use crate::errors::StakingError;
 use crate::state::StakingInfo;
 
-// Add the details for a staking pool
 pub fn initialize(
     ctx: Context<Initialize>,
     max_token_amount_per_address: u64,
@@ -15,11 +15,22 @@ pub fn initialize(
     start_time: i64,
     end_time: i64,
 ) -> Result<()> {
+    require!(
+        max_token_amount_per_address > 0,
+        StakingError::TokenAmountTooSmall
+    );
+
+    let now = Clock::get().unwrap().unix_timestamp;
+    require!(
+        start_time >= now && end_time > start_time,
+        StakingError::InvalidStakingDateTimes
+    );
+
     let staking_info = &mut ctx.accounts.staking_info;
     let authority = &ctx.accounts.admin;
 
     staking_info.token_mint_address = ctx.accounts.mint_account.to_account_info().key();
-    staking_info.deposit_token_amount = 0;
+    staking_info.total_staked = 0;
     staking_info.start_time = start_time;
     staking_info.end_time = end_time;
     staking_info.max_token_amount_per_address = max_token_amount_per_address;
@@ -32,18 +43,6 @@ pub fn initialize(
         staking_info.token_mint_address
     );
 
-    // transfer Sol to the staking vault
-    system_program::transfer(
-        CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
-            system_program::Transfer {
-                from: ctx.accounts.admin.to_account_info(),
-                to: ctx.accounts.staking_vault.to_account_info(),
-            },
-        ),
-        RENT_MINIMUM,
-    )?;
-
     Ok(())
 }
 
@@ -55,10 +54,9 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = admin,
-        token::mint = mint_account,
-        token::authority = staking_info,
-        seeds = [STAKING_VAULT, staking_info.key().as_ref(), mint_account.key().as_ref()],
-        bump,
+        associated_token::mint = mint_account,
+        associated_token::authority = staking_info,
+        associated_token::token_program = token_program
     )]
     pub staking_vault: InterfaceAccount<'info, TokenAccount>,
 

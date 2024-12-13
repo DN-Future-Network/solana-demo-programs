@@ -5,8 +5,8 @@ use anchor_lang::prelude::*;
 pub struct StakingInfo {
     // Mint address of the stake token
     pub token_mint_address: Pubkey,
-    // Total amount of tokens available in the staking pool
-    pub deposit_token_amount: u64,
+    // Total amount of tokens that staked to the staking pool
+    pub total_staked: u64,
     // Start time of staking pool
     pub start_time: i64,
     // End time of staking pool

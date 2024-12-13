@@ -1,30 +1,36 @@
 import * as anchor from '@coral-xyz/anchor'
 import { Program, BN } from '@coral-xyz/anchor'
-import { SYSTEM_PROGRAM_ID } from '@coral-xyz/anchor/dist/cjs/native/system'
-
-import { TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAccount } from '@solana/spl-token'
+import { TOKEN_2022_PROGRAM_ID, getAccount, getAssociatedTokenAddressSync } from '@solana/spl-token'
 import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 
 import { BanksClient, Clock, ProgramTestContext, startAnchor } from 'solana-bankrun'
 import { BankrunProvider } from 'anchor-bankrun'
-import { Token } from '../target/types/token'
 import { Staking } from '../target/types/staking'
-import { getTokenProgram, TOKEN_PROGRAM_ID, getStakingProgram, STAKING_PROGRAM_ID } from './bankrun'
+import {
+  getStakingProgram,
+  STAKING_PROGRAM_ID,
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  airdropSol,
+  setClock,
+} from './bankrun'
 
 const TOKEN_DECIMAL = 6
+const TOKEN_50 = new BN(50).mul(new BN(10 ** TOKEN_DECIMAL))
 const TOKEN_100 = new BN(100).mul(new BN(10 ** TOKEN_DECIMAL))
 const TOKEN_500 = new BN(500).mul(new BN(10 ** TOKEN_DECIMAL))
 const TOKEN_1000 = new BN(1000).mul(new BN(10 ** TOKEN_DECIMAL))
 
 const STAKING_SEED = 'STAKING_SEED'
-const STAKING_VAULT = 'STAKING_VAULT'
 const USER_SEED = 'USER_SEED'
 
-const DURATION_1_DAY = new BN(1000).mul(new BN(60 * 60 * 24))
-const STAKING_START_TIME = new BN(Date.now()).add(DURATION_1_DAY)
-const STAKING_END_TIME = STAKING_START_TIME.add(DURATION_1_DAY)
 const STAKING_INTEREST_RATE = new BN(1000) // 10%
 const STAKING_MAX_DEPOSIT_AMOUNT_PER_USER = TOKEN_1000
+
+const DURATION_1_DAY = new BN(60 * 60 * 24)
+let STAKING_START_TIME: BN
+let STAKING_END_TIME: BN
 
 describe('staking', () => {
   let admin: Keypair
@@ -32,6 +38,7 @@ describe('staking', () => {
 
   let mint: PublicKey
   let ATA_user1: PublicKey
+  let PDA_user1: PublicKey
   let ATA_admin: PublicKey
 
   let PDA_stakingInfo: PublicKey
@@ -39,137 +46,124 @@ describe('staking', () => {
   let ATA_stakingVault: PublicKey
 
   let programStaking: Program<Staking>
-  let programToken: Program<Token>
 
   let context: ProgramTestContext
   let banksClient: BanksClient
   let connection: Connection
 
-  beforeAll(async () => {
-    admin = new Keypair()
-    user1 = new Keypair()
-
+  beforeEach(async () => {
     // Configure the client to use the local cluster.
-    context = await startAnchor(
-      '',
-      [
-        { name: 'staking', programId: STAKING_PROGRAM_ID },
-        { name: 'token', programId: TOKEN_PROGRAM_ID },
-      ],
-      [
-        {
-          address: admin.publicKey,
-          info: {
-            lamports: 1_000_000_000,
-            data: Buffer.alloc(0),
-            owner: SYSTEM_PROGRAM_ID,
-            executable: false,
-          },
-        },
-        {
-          address: user1.publicKey,
-          info: {
-            lamports: 1_000_000_000,
-            data: Buffer.alloc(0),
-            owner: SYSTEM_PROGRAM_ID,
-            executable: false,
-          },
-        },
-      ],
-    )
-
+    context = await startAnchor('', [{ name: 'staking', programId: STAKING_PROGRAM_ID }], [])
     banksClient = context.banksClient
     const provider = new BankrunProvider(context)
     anchor.setProvider(provider)
     connection = provider.connection
     programStaking = getStakingProgram(provider)
-    programToken = getTokenProgram(provider)
 
-    // Create token contract
-    mint = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from('token-2022-token'), admin.publicKey.toBytes(), Buffer.from('Test token')],
-      programToken.programId,
+    const currentClock = await banksClient.getClock()
+    STAKING_START_TIME = new BN(currentClock.unixTimestamp.toString())
+    STAKING_END_TIME = STAKING_START_TIME.add(DURATION_1_DAY)
+
+    admin = new Keypair()
+    user1 = new Keypair()
+    await airdropSol(context, admin.publicKey, 100)
+    await airdropSol(context, user1.publicKey, 100)
+
+    mint = await createMint(banksClient, admin, TOKEN_DECIMAL, TOKEN_2022_PROGRAM_ID)
+    ATA_admin = await getOrCreateAssociatedTokenAccount(
+      banksClient,
+      admin,
+      mint,
+      admin.publicKey,
+      undefined,
+      undefined,
+      TOKEN_2022_PROGRAM_ID,
+    )
+    ATA_user1 = await getOrCreateAssociatedTokenAccount(
+      banksClient,
+      user1,
+      mint,
+      user1.publicKey,
+      undefined,
+      undefined,
+      TOKEN_2022_PROGRAM_ID,
+    )
+
+    // Mint tokens
+    await mintTo(banksClient, admin, mint, ATA_admin, admin.publicKey, TOKEN_1000, [], TOKEN_2022_PROGRAM_ID)
+    await mintTo(banksClient, admin, mint, ATA_user1, admin.publicKey, TOKEN_500, [], TOKEN_2022_PROGRAM_ID)
+
+    // Get PDA accounts
+    PDA_user1 = PublicKey.findProgramAddressSync(
+      [Buffer.from(USER_SEED), user1.publicKey.toBuffer()],
+      programStaking.programId,
     )[0]
-    await programToken.methods
-      .createToken('Test token')
-      .accounts({
-        signer: admin.publicKey,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-      })
-      .signers([admin])
-      .rpc()
-
-    // Create associated token accounts for admin
-    ATA_admin = PublicKey.findProgramAddressSync(
-      [admin.publicKey.toBytes(), TOKEN_2022_PROGRAM_ID.toBytes(), mint.toBytes()],
-      ASSOCIATED_TOKEN_PROGRAM_ID,
-    )[0]
-    await programToken.methods
-      .createAssociatedTokenAccount()
-      .accounts({
-        // @ts-expect-error: Ignore code error
-        tokenAccount: ATA_admin,
-        mint: mint,
-        signer: admin.publicKey,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-      })
-      .signers([admin])
-      .rpc()
-
-    // Create associated token accounts for user
-    ATA_user1 = PublicKey.findProgramAddressSync(
-      [user1.publicKey.toBytes(), TOKEN_2022_PROGRAM_ID.toBytes(), mint.toBytes()],
-      ASSOCIATED_TOKEN_PROGRAM_ID,
-    )[0]
-    await programToken.methods
-      .createAssociatedTokenAccount()
-      .accounts({
-        // @ts-expect-error: Ignore code error
-        tokenAccount: ATA_user1,
-        mint: mint,
-        signer: user1.publicKey,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-      })
-      .signers([user1])
-      .rpc()
-
-    // Mint 1000 tokens for admin
-    await programToken.methods
-      .mintToken(TOKEN_1000)
-      .accounts({
-        mint: mint,
-        signer: admin.publicKey,
-        receiver: ATA_admin,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-      })
-      .signers([admin])
-      .rpc()
-
-    // Mint 500 tokens for user1
-    await programToken.methods
-      .mintToken(TOKEN_500)
-      .accounts({
-        mint: mint,
-        signer: admin.publicKey,
-        receiver: ATA_user1,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-      })
-      .signers([admin])
-      .rpc()
-
-    // Get PDA accounts of staking pool
     ;[PDA_stakingInfo, PDA_stakingInfo_bump] = PublicKey.findProgramAddressSync(
       [Buffer.from(STAKING_SEED)],
       programStaking.programId,
     )
-    ATA_stakingVault = PublicKey.findProgramAddressSync(
-      [Buffer.from(STAKING_VAULT), PDA_stakingInfo.toBuffer(), mint.toBuffer()],
-      programStaking.programId,
-    )[0]
+    ATA_stakingVault = getAssociatedTokenAddressSync(
+      mint,
+      PDA_stakingInfo,
+      true, // Allow the owner account to be a PDA
+      TOKEN_2022_PROGRAM_ID,
+    )
   })
 
-  describe('createStakingPool', () => {
-    it('Create successfully', async () => {
+  describe('initialize', () => {
+    it('should failed when max token can stake is invalid', async () => {
+      await expect(
+        programStaking.methods
+          .initialize(new BN(0), STAKING_INTEREST_RATE.toNumber(), STAKING_START_TIME, STAKING_END_TIME)
+          .accounts({
+            mintAccount: mint,
+            admin: admin.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([admin])
+          .rpc(),
+      ).rejects.toThrow('Amount must be greater than zero')
+    })
+
+    it('should failed when start time is less than current time', async () => {
+      await expect(
+        programStaking.methods
+          .initialize(
+            STAKING_MAX_DEPOSIT_AMOUNT_PER_USER,
+            STAKING_INTEREST_RATE.toNumber(),
+            STAKING_START_TIME.sub(new BN(1)),
+            STAKING_END_TIME,
+          )
+          .accounts({
+            mintAccount: mint,
+            admin: admin.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([admin])
+          .rpc(),
+      ).rejects.toThrow('Invalid Start time or End time')
+    })
+
+    it('should failed when start time equal end time', async () => {
+      await expect(
+        programStaking.methods
+          .initialize(
+            STAKING_MAX_DEPOSIT_AMOUNT_PER_USER,
+            STAKING_INTEREST_RATE.toNumber(),
+            STAKING_START_TIME,
+            STAKING_START_TIME,
+          )
+          .accounts({
+            mintAccount: mint,
+            admin: admin.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([admin])
+          .rpc(),
+      ).rejects.toThrow('Invalid Start time or End time')
+    })
+
+    it('should successfully', async () => {
       await programStaking.methods
         .initialize(
           STAKING_MAX_DEPOSIT_AMOUNT_PER_USER,
@@ -192,6 +186,7 @@ describe('staking', () => {
       expect(stakingInfoData.tokenMintAddress.equals(mint)).toBeTruthy()
       expect(stakingInfoData.isPaused).toBeFalsy()
       expect(stakingInfoData.authority.equals(admin.publicKey)).toBeTruthy()
+      expect(stakingInfoData.totalStaked.isZero()).toBeTruthy()
       expect(stakingInfoData.maxTokenAmountPerAddress.eq(STAKING_MAX_DEPOSIT_AMOUNT_PER_USER)).toBeTruthy()
       expect(stakingInfoData.interestRate).toEqual(STAKING_INTEREST_RATE.toNumber())
       expect(stakingInfoData.startTime.eq(STAKING_START_TIME)).toBeTruthy()
@@ -202,34 +197,91 @@ describe('staking', () => {
 
       const accountsData = {
         mintAccount: mint,
-        admin: admin.publicKey,
+        authority: admin.publicKey,
         fromAssociatedTokenAccount: ATA_admin,
         stakingInfo: PDA_stakingInfo,
         stakingVault: ATA_stakingVault,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       }
-
       await programStaking.methods.depositReward(TOKEN_1000).accounts(accountsData).signers([admin]).rpc()
     })
   })
 
-  describe('deposit', () => {
-    it('Deposit successfully', async () => {
-      const PDA_user1 = PublicKey.findProgramAddressSync(
-        [Buffer.from(USER_SEED), user1.publicKey.toBuffer()],
-        programStaking.programId,
-      )[0]
+  describe('stake', () => {
+    beforeEach(async () => {
+      await programStaking.methods
+        .initialize(
+          STAKING_MAX_DEPOSIT_AMOUNT_PER_USER,
+          STAKING_INTEREST_RATE.toNumber(),
+          STAKING_START_TIME,
+          STAKING_END_TIME,
+        )
+        .accounts({
+          mintAccount: mint,
+          admin: admin.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc()
+    })
+
+    it('should failed when staking has not started yet', async () => {
+      await setClock(context, STAKING_START_TIME.sub(new BN(1)))
+      await expect(
+        programStaking.methods
+          .stake(TOKEN_100)
+          .accounts({
+            mintAccount: mint,
+            staker: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Staking not started yet')
+    })
+
+    it('should failed when staking has ended', async () => {
+      await setClock(context, STAKING_END_TIME.add(new BN(1)))
+
       const accountsData = {
         mintAccount: mint,
         staker: user1.publicKey,
-        fromAssociatedTokenAccount: ATA_user1,
-        stakingInfo: PDA_stakingInfo,
-        stakingVault: ATA_stakingVault,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       }
+      await expect(
+        programStaking.methods.stake(TOKEN_100).accounts(accountsData).signers([user1]).rpc(),
+      ).rejects.toThrow('Staking already ended')
+    })
 
+    it('should failed when stake amount is zero', async () => {
+      await expect(
+        programStaking.methods
+          .stake(new BN(0))
+          .accounts({
+            mintAccount: mint,
+            staker: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Amount must be greater than zero')
+    })
+
+    it('should failed when stake exceeds limit token per address', async () => {
+      await expect(
+        programStaking.methods
+          .stake(STAKING_MAX_DEPOSIT_AMOUNT_PER_USER.add(new BN(1)))
+          .accounts({
+            mintAccount: mint,
+            staker: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Stake amount reaches maximum amount')
+    })
+
+    it('should successfully', async () => {
       const ATA_user1_before = await getAccount(connection, ATA_user1, undefined, TOKEN_2022_PROGRAM_ID)
       const ATA_stakingVault_before = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
 
@@ -244,7 +296,15 @@ describe('staking', () => {
           BigInt(STAKING_START_TIME.toString()),
         ),
       )
-      await programStaking.methods.deposit(TOKEN_100).accounts(accountsData).signers([user1]).rpc()
+      await programStaking.methods
+        .stake(TOKEN_100)
+        .accounts({
+          mintAccount: mint,
+          staker: user1.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([user1])
+        .rpc()
 
       const ATA_user1_after = await getAccount(connection, ATA_user1, undefined, TOKEN_2022_PROGRAM_ID)
       const ATA_stakingVault_after = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
@@ -256,36 +316,96 @@ describe('staking', () => {
       expect(userInfo?.owner.equals(programStaking.programId)).toBeTruthy()
 
       const userInfoData = await programStaking.account.userInfo.fetch(PDA_user1)
-
       expect(userInfoData.holder.equals(user1.publicKey)).toBeTruthy()
       expect(userInfoData.stakedAmount.eq(TOKEN_100)).toBeTruthy()
       expect(userInfoData.pendingReward.isZero()).toBeTruthy()
       expect(userInfoData.lastClaimedRewardAt.gte(STAKING_START_TIME)).toBeTruthy()
+
+      const stakingInfoData = await programStaking.account.stakingInfo.fetch(PDA_stakingInfo)
+      expect(stakingInfoData.totalStaked.eq(TOKEN_100)).toBeTruthy()
     })
   })
 
-  describe('withdraw', () => {
-    it('Withdraw successfully', async () => {
-      const PDA_user1 = PublicKey.findProgramAddressSync(
-        [Buffer.from(USER_SEED), user1.publicKey.toBuffer()],
-        programStaking.programId,
-      )[0]
-      const accountsData = {
-        mintAccount: mint,
-        staker: user1.publicKey,
-        toAssociatedTokenAccount: ATA_user1,
-        stakingInfo: PDA_stakingInfo,
-        stakingVault: ATA_stakingVault,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-      }
+  describe('unstake', () => {
+    beforeEach(async () => {
+      await programStaking.methods
+        .initialize(
+          STAKING_MAX_DEPOSIT_AMOUNT_PER_USER,
+          STAKING_INTEREST_RATE.toNumber(),
+          STAKING_START_TIME,
+          STAKING_END_TIME,
+        )
+        .accounts({
+          mintAccount: mint,
+          admin: admin.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc()
 
+      await programStaking.methods
+        .stake(TOKEN_100)
+        .accounts({
+          mintAccount: mint,
+          staker: user1.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([user1])
+        .rpc()
+    })
+
+    it('should failed when unstake with zero amount', async () => {
+      await expect(
+        programStaking.methods
+          .unstake(PDA_stakingInfo_bump, new BN(0))
+          .accounts({
+            mintAccount: mint,
+            staker: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Amount must be greater than zero')
+    })
+
+    it('should failed when unstake all', async () => {
+      await expect(
+        programStaking.methods
+          .unstake(PDA_stakingInfo_bump, TOKEN_100)
+          .accounts({
+            mintAccount: mint,
+            staker: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Unstake all instead')
+    })
+
+    it('should failed when unstake greater than staked amount', async () => {
+      await expect(
+        programStaking.methods
+          .unstake(PDA_stakingInfo_bump, TOKEN_100.add(new BN(1)))
+          .accounts({
+            mintAccount: mint,
+            staker: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Unstake amount cannot be greater than staked amount')
+    })
+
+    it('Withdraw successfully', async () => {
       const ATA_user1_before = await getAccount(connection, ATA_user1, undefined, TOKEN_2022_PROGRAM_ID)
       const ATA_stakingVault_before = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
 
       const userInfoData = await programStaking.account.userInfo.fetch(PDA_user1)
       const stakingInfoData = await programStaking.account.stakingInfo.fetch(PDA_stakingInfo)
       const elapsed_time = stakingInfoData.endTime.sub(userInfoData.lastClaimedRewardAt).div(new BN(1000))
+
+      console.log("AAAAAAAAAAAAAAAA", stakingInfoData.endTime.toString())
+      console.log("AAAAAAAAAAAAAAAA", userInfoData.lastClaimedRewardAt.toString())
       const reward_expected = userInfoData.stakedAmount
         .mul(STAKING_INTEREST_RATE)
         .mul(elapsed_time)
@@ -302,18 +422,43 @@ describe('staking', () => {
           BigInt(STAKING_END_TIME.add(new BN(1)).toString()),
         ),
       )
-      await programStaking.methods.withdraw(PDA_stakingInfo_bump).accounts(accountsData).signers([user1]).rpc()
+      await programStaking.methods
+        .unstake(PDA_stakingInfo_bump, TOKEN_50)
+        .accounts({
+          mintAccount: mint,
+          staker: user1.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([user1])
+        .rpc()
 
       const ATA_user1_after = await getAccount(connection, ATA_user1, undefined, TOKEN_2022_PROGRAM_ID)
       const ATA_stakingVault_after = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
 
       expect((ATA_user1_after.amount - ATA_user1_before.amount).toString()).toEqual(
-        reward_expected.add(userInfoData.stakedAmount).toString(),
+        reward_expected.add(TOKEN_50).toString(),
       )
       expect((ATA_stakingVault_before.amount - ATA_stakingVault_after.amount).toString()).toEqual(
-        reward_expected.add(userInfoData.stakedAmount).toString(),
+        reward_expected.add(TOKEN_50).toString(),
       )
-      await expect(programStaking.account.userInfo.fetch(PDA_user1)).rejects.toThrow(`Could not find ${PDA_user1}`)
+      // await expect(programStaking.account.userInfo.fetch(PDA_user1)).rejects.toThrow(`Could not find ${PDA_user1}`)
     })
   })
 })
+
+// function calculateRewards(stakingInfo: Object, userInfo: anchor.AccountClient<Staking, "userInfo">): BN => {
+//   if (userInf)
+//     if self.staked_amount == 0 {
+//         return 0;
+//     }
+
+//     let min_time = min(Clock::get().unwrap().unix_timestamp, staking_info.end_time);
+//     if min_time <= self.last_claimed_reward_at {
+//         return 0;
+//     }
+
+//     let elapsed_time = (min_time - self.last_claimed_reward_at) as u64;
+//     let reward = (self.staked_amount * elapsed_time * (staking_info.interest_rate as u64))
+//         / (3600 * 24 * 365 * 10000);
+//     self.pending_reward + reward
+// }

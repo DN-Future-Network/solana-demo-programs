@@ -3,7 +3,7 @@ import { BN } from '@coral-xyz/anchor'
 import { Command } from 'commander'
 import { getKeypairFromFile } from '@solana-developers/helpers'
 import { PublicKey } from '@solana/web3.js'
-import { getMint, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
+import { getAssociatedTokenAddressSync, getMint, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 import { Staking } from '../target/types/staking'
 const program = new Command()
 
@@ -69,10 +69,12 @@ program
       const PDA_stakingInfo = PublicKey.findProgramAddressSync([Buffer.from(STAKING_SEED)], program.programId)[0]
       const stakingInfoData = await program.account.stakingInfo.fetch(PDA_stakingInfo)
 
-      const stakingVaultATA = PublicKey.findProgramAddressSync(
-        [Buffer.from(STAKING_VAULT), PDA_stakingInfo.toBuffer(), mint.address.toBuffer()],
-        program.programId,
-      )[0]
+      const stakingVaultATA = getAssociatedTokenAddressSync(
+        mint.address,
+        PDA_stakingInfo,
+        true, // Allow the owner account to be a PDA
+        TOKEN_2022_PROGRAM_ID,
+      )
 
       console.table({
         Token: stakingInfoData.tokenMintAddress.toString(),

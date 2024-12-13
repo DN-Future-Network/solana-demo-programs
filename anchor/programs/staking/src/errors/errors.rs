@@ -10,12 +10,14 @@ pub enum StakingError {
     StakingNotStarted,
     #[msg("Staking already ended")]
     StakingEnded,
-    #[msg("Staking not ended yet")]
-    StakingNotEnded,
     #[msg("Amount must be greater than zero")]
     TokenAmountTooSmall,
-    #[msg("Withdraw amount cannot be less than deposit")]
+    #[msg("Unstake amount cannot be greater than staked amount")]
     TokenAmountTooBig,
-    #[msg("Deposit reaches maximum amount")]
-    ReachMaxDeposit,
+    #[msg("Stake amount reaches maximum amount")]
+    ReachMaxStake,
+    #[msg("Unstake all instead")]
+    UnstakeAllInstead,
+    #[msg("Invalid Start time or End time")]
+    InvalidStakingDateTimes,
 }

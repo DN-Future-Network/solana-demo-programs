@@ -7,7 +7,6 @@ skip-lint = false
 
 [programs.localnet]
 staking = "DsxbTv2TFuXz656i7SeqWLt2wpgVfBccLyFMA3i2tvBG"
-token = "Bj6HMrmfUJ4S23SSXvM5swMBdTQ5pjafQcCPe27wJXGA"
 
 [registry]
 url = "https://api.apr.dev"
