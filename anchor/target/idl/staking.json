@@ -460,7 +460,7 @@
             "seeds": [
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               },
               {
                 "kind": "account",
@@ -588,7 +588,7 @@
               },
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               }
             ]
           }
@@ -619,7 +619,7 @@
           }
         },
         {
-          "name": "staker",
+          "name": "authority",
           "writable": true,
           "signer": true
         },
@@ -670,7 +670,7 @@
             "seeds": [
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               },
               {
                 "kind": "account",
@@ -798,13 +798,14 @@
               },
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               }
             ]
           }
         },
         {
           "name": "staking_info",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -828,7 +829,7 @@
           }
         },
         {
-          "name": "staker",
+          "name": "authority",
           "writable": true,
           "signer": true
         },
@@ -926,11 +927,6 @@
     },
     {
       "code": 6007,
-      "name": "UnstakeAllInstead",
-      "msg": "Unstake all instead"
-    },
-    {
-      "code": 6008,
       "name": "InvalidStakingDateTimes",
       "msg": "Invalid Start time or End time"
     }
@@ -982,7 +978,7 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "holder",
+            "name": "authority",
             "type": "pubkey"
           },
           {

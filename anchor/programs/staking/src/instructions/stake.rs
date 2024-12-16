@@ -32,7 +32,7 @@ pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
     user_info.pending_reward = user_info.accumulated_reward(&staking_info);
 
     // Update the stake info
-    user_info.holder = ctx.accounts.staker.key();
+    user_info.authority = ctx.accounts.authority.key();
     user_info.staked_amount += amount;
     user_info.last_claimed_reward_at = now;
 
@@ -47,7 +47,7 @@ pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
             .clone(),
         mint: ctx.accounts.mint_account.to_account_info().clone(),
         to: ctx.accounts.staking_vault.to_account_info().clone(),
-        authority: ctx.accounts.staker.to_account_info(),
+        authority: ctx.accounts.authority.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
@@ -65,7 +65,7 @@ pub struct Stake<'info> {
     #[account(
         mut,
         associated_token::mint = mint_account,
-        associated_token::authority = staker,
+        associated_token::authority = authority,
         associated_token::token_program = token_program
     )]
     pub from_associated_token_account: InterfaceAccount<'info, TokenAccount>,
@@ -80,9 +80,9 @@ pub struct Stake<'info> {
 
     #[account(
         init_if_needed,
-        payer = staker,
+        payer = authority,
         space = 8 + std::mem::size_of::<UserInfo>(),
-        seeds = [USER_SEED, staker.key().as_ref()],
+        seeds = [USER_SEED, authority.key().as_ref()],
         bump
     )]
     pub user_info: Box<Account<'info, UserInfo>>,
@@ -95,7 +95,7 @@ pub struct Stake<'info> {
     pub staking_info: Box<Account<'info, StakingInfo>>,
 
     #[account(mut)]
-    pub staker: Signer<'info>,
+    pub authority: Signer<'info>,
 
     pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,

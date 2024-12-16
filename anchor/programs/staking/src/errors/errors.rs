@@ -16,8 +16,6 @@ pub enum StakingError {
     TokenAmountTooBig,
     #[msg("Stake amount reaches maximum amount")]
     ReachMaxStake,
-    #[msg("Unstake all instead")]
-    UnstakeAllInstead,
     #[msg("Invalid Start time or End time")]
     InvalidStakingDateTimes,
 }

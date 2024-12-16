@@ -7,7 +7,7 @@ use super::StakingInfo;
 #[derive(Default)]
 
 pub struct UserInfo {
-    pub holder: Pubkey,
+    pub authority: Pubkey,
     pub staked_amount: u64,
     pub pending_reward: u64,
     pub last_claimed_reward_at: i64,

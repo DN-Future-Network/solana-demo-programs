@@ -466,7 +466,7 @@ export type Staking = {
             "seeds": [
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               },
               {
                 "kind": "account",
@@ -594,7 +594,7 @@ export type Staking = {
               },
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               }
             ]
           }
@@ -625,7 +625,7 @@ export type Staking = {
           }
         },
         {
-          "name": "staker",
+          "name": "authority",
           "writable": true,
           "signer": true
         },
@@ -676,7 +676,7 @@ export type Staking = {
             "seeds": [
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               },
               {
                 "kind": "account",
@@ -804,13 +804,14 @@ export type Staking = {
               },
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               }
             ]
           }
         },
         {
           "name": "stakingInfo",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -834,7 +835,7 @@ export type Staking = {
           }
         },
         {
-          "name": "staker",
+          "name": "authority",
           "writable": true,
           "signer": true
         },
@@ -932,11 +933,6 @@ export type Staking = {
     },
     {
       "code": 6007,
-      "name": "unstakeAllInstead",
-      "msg": "Unstake all instead"
-    },
-    {
-      "code": 6008,
       "name": "invalidStakingDateTimes",
       "msg": "Invalid Start time or End time"
     }
@@ -988,7 +984,7 @@ export type Staking = {
         "kind": "struct",
         "fields": [
           {
-            "name": "holder",
+            "name": "authority",
             "type": "pubkey"
           },
           {
