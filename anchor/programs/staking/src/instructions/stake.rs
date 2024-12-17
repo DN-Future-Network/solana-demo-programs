@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
+    token_2022::spl_token_2022,
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
 use crate::constants::{STAKING_SEED, USER_SEED};
@@ -39,19 +40,21 @@ pub fn stake(ctx: Context<Stake>, amount: u64) -> Result<()> {
     staking_info.total_staked += amount;
 
     // Transfer token to staking vault
-    let cpi_accounts = TransferChecked {
-        from: ctx
-            .accounts
+    let _ = spl_token_2022::onchain::invoke_transfer_checked(
+        ctx.accounts.token_program.key,
+        ctx.accounts
             .from_associated_token_account
             .to_account_info()
             .clone(),
-        mint: ctx.accounts.mint_account.to_account_info().clone(),
-        to: ctx.accounts.staking_vault.to_account_info().clone(),
-        authority: ctx.accounts.authority.to_account_info(),
-    };
-    let cpi_program = ctx.accounts.token_program.to_account_info();
-    let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-    transfer_checked(cpi_context, amount, ctx.accounts.mint_account.decimals)?;
+        ctx.accounts.mint_account.to_account_info().clone(),
+        ctx.accounts.staking_vault.to_account_info().clone(),
+        ctx.accounts.authority.to_account_info(),
+        &[],
+        amount,
+        ctx.accounts.mint_account.decimals,
+        &[],
+    );
+
     msg!("Stake successfully.");
 
     Ok(())
@@ -89,6 +92,7 @@ pub struct Stake<'info> {
 
     #[account(
         mut,
+        constraint = !staking_info.is_paused @ StakingError::StakingPaused,
         seeds = [STAKING_SEED],
         bump
     )]
@@ -97,7 +101,6 @@ pub struct Stake<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,

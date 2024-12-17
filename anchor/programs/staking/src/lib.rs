@@ -37,11 +37,23 @@ pub mod staking {
         return unstake::unstake(ctx, bump, amount);
     }
 
-    pub fn claim_reward(ctx: Context<ClaimReward>, bump: u8) -> Result<()> {
-        return unstake::claim_reward(ctx, bump);
+    pub fn claim_rewards(ctx: Context<ClaimRewards>, bump: u8) -> Result<()> {
+        return unstake::claim_rewards(ctx, bump);
     }
 
-    pub fn deposit_reward(ctx: Context<DepositReward>, amount: u64) -> Result<()> {
-        return admin::deposit_reward(ctx, amount);
+    pub fn deposit_rewards(ctx: Context<DepositRewards>, amount: u64) -> Result<()> {
+        return admin::deposit_rewards(ctx, amount);
+    }
+
+    pub fn emergency_withdraw(
+        ctx: Context<EmergencyWithdraw>,
+        bump: u8,
+        amount: u64,
+    ) -> Result<()> {
+        return admin::emergency_withdraw(ctx, bump, amount);
+    }
+
+    pub fn toogle_pause(ctx: Context<TooglePause>) -> Result<()> {
+        return admin::toogle_pause(ctx);
     }
 }

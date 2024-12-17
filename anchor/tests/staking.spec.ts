@@ -356,7 +356,7 @@ describe('staking', () => {
 
       // Admin deposit token for rewards
       await programStaking.methods
-        .depositReward(TOKEN_1000)
+        .depositRewards(TOKEN_1000)
         .accounts({
           mintAccount: mint,
           /* @ts-ignore */
@@ -397,7 +397,7 @@ describe('staking', () => {
           })
           .signers([user1])
           .rpc(),
-      ).rejects.toThrow('Unstake amount cannot be greater than staked amount')
+      ).rejects.toThrow('Amount cannot be greater than staked amount')
     })
 
     it('Should successfully', async () => {
