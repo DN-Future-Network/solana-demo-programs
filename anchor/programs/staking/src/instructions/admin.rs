@@ -71,6 +71,8 @@ pub fn toogle_pause(ctx: Context<TooglePause>) -> Result<()> {
     let staking_info = &mut ctx.accounts.staking_info;
     staking_info.is_paused = !staking_info.is_paused;
 
+    msg!("Toogle pause staking successfully.");
+
     Ok(())
 }
 

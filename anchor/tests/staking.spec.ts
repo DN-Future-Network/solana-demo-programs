@@ -19,7 +19,6 @@ import {
 const TOKEN_DECIMALS = 6
 const TOKEN_50 = new BN(50).mul(new BN(10 ** TOKEN_DECIMALS))
 const TOKEN_100 = new BN(100).mul(new BN(10 ** TOKEN_DECIMALS))
-const TOKEN_500 = new BN(500).mul(new BN(10 ** TOKEN_DECIMALS))
 const TOKEN_1000 = new BN(1000).mul(new BN(10 ** TOKEN_DECIMALS))
 
 const STAKING_SEED = 'STAKING_SEED'
@@ -92,7 +91,7 @@ describe('staking', () => {
 
     // Mint tokens
     await mintTo(banksClient, admin, mint, ATA_admin, admin.publicKey, TOKEN_1000, [], TOKEN_2022_PROGRAM_ID)
-    await mintTo(banksClient, admin, mint, ATA_user1, admin.publicKey, TOKEN_500, [], TOKEN_2022_PROGRAM_ID)
+    await mintTo(banksClient, admin, mint, ATA_user1, admin.publicKey, TOKEN_100, [], TOKEN_2022_PROGRAM_ID)
 
     // Get PDA accounts
     PDA_user1 = PublicKey.findProgramAddressSync(
@@ -216,6 +215,28 @@ describe('staking', () => {
         .rpc()
     })
 
+    it('should failed when staking has paused', async () => {
+      await programStaking.methods
+        .tooglePause()
+        .accounts({
+          authority: admin.publicKey,
+        })
+        .signers([admin])
+        .rpc()
+
+      await expect(
+        programStaking.methods
+          .stake(TOKEN_100)
+          .accounts({
+            mintAccount: mint,
+            authority: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Staking temporarily paused')
+    })
+
     it('should failed when staking has not started yet', async () => {
       await setClock(context, STAKING_START_TIME.sub(new BN(1)))
       await expect(
@@ -223,7 +244,6 @@ describe('staking', () => {
           .stake(TOKEN_100)
           .accounts({
             mintAccount: mint,
-            /* @ts-ignore */
             authority: user1.publicKey,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
@@ -240,7 +260,6 @@ describe('staking', () => {
           .stake(TOKEN_100)
           .accounts({
             mintAccount: mint,
-            /* @ts-ignore */
             authority: user1.publicKey,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
@@ -255,7 +274,6 @@ describe('staking', () => {
           .stake(new BN(0))
           .accounts({
             mintAccount: mint,
-            /* @ts-ignore */
             authority: user1.publicKey,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
@@ -270,7 +288,6 @@ describe('staking', () => {
           .stake(STAKING_MAX_DEPOSIT_AMOUNT_PER_USER.add(new BN(1)))
           .accounts({
             mintAccount: mint,
-            /* @ts-ignore */
             authority: user1.publicKey,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
@@ -298,7 +315,6 @@ describe('staking', () => {
         .stake(TOKEN_100)
         .accounts({
           mintAccount: mint,
-          /* @ts-ignore */
           authority: user1.publicKey,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
@@ -347,7 +363,6 @@ describe('staking', () => {
         .stake(TOKEN_100)
         .accounts({
           mintAccount: mint,
-          /* @ts-ignore */
           authority: user1.publicKey,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
@@ -361,13 +376,32 @@ describe('staking', () => {
           mintAccount: mint,
           /* @ts-ignore */
           authority: admin.publicKey,
-          fromAssociatedTokenAccount: ATA_admin,
-          stakingInfo: PDA_stakingInfo,
-          stakingVault: ATA_stakingVault,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .signers([admin])
         .rpc()
+    })
+
+    it('should failed when staking has paused', async () => {
+      await programStaking.methods
+        .tooglePause()
+        .accounts({
+          authority: admin.publicKey,
+        })
+        .signers([admin])
+        .rpc()
+
+      await expect(
+        programStaking.methods
+          .unstake(PDA_stakingInfo_bump, TOKEN_50)
+          .accounts({
+            mintAccount: mint,
+            authority: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Staking temporarily paused')
     })
 
     it('should failed when unstake with zero amount', async () => {
@@ -376,7 +410,6 @@ describe('staking', () => {
           .unstake(PDA_stakingInfo_bump, new BN(0))
           .accounts({
             mintAccount: mint,
-            /* @ts-ignore */
             authority: user1.publicKey,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
@@ -391,7 +424,6 @@ describe('staking', () => {
           .unstake(PDA_stakingInfo_bump, TOKEN_100.add(new BN(1)))
           .accounts({
             mintAccount: mint,
-            /* @ts-ignore */
             authority: user1.publicKey,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
@@ -416,7 +448,6 @@ describe('staking', () => {
         .unstake(PDA_stakingInfo_bump, TOKEN_50)
         .accounts({
           mintAccount: mint,
-          /* @ts-ignore */
           authority: user1.publicKey,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
@@ -447,7 +478,6 @@ describe('staking', () => {
         .unstake(PDA_stakingInfo_bump, TOKEN_50)
         .accounts({
           mintAccount: mint,
-          /* @ts-ignore */
           authority: user1.publicKey,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
@@ -458,6 +488,386 @@ describe('staking', () => {
       expect(stakingInfo.totalStaked.isZero()).toBeTruthy()
 
       await expect(programStaking.account.userInfo.fetch(PDA_user1)).rejects.toThrow(`Could not find ${PDA_user1}`)
+    })
+  })
+
+  describe('claimRewards', () => {
+    beforeEach(async () => {
+      await programStaking.methods
+        .initialize(
+          STAKING_MAX_DEPOSIT_AMOUNT_PER_USER,
+          STAKING_INTEREST_RATE.toNumber(),
+          STAKING_START_TIME,
+          STAKING_END_TIME,
+        )
+        .accounts({
+          mintAccount: mint,
+          admin: admin.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc()
+
+      // User stake tokens
+      await programStaking.methods
+        .stake(TOKEN_100)
+        .accounts({
+          mintAccount: mint,
+          authority: user1.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([user1])
+        .rpc()
+
+      // Admin deposit token for rewards
+      await programStaking.methods
+        .depositRewards(TOKEN_1000)
+        .accounts({
+          mintAccount: mint,
+          /* @ts-ignore */
+          authority: admin.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc()
+    })
+
+    it('should failed when staking has paused', async () => {
+      await programStaking.methods
+        .tooglePause()
+        .accounts({
+          authority: admin.publicKey,
+        })
+        .signers([admin])
+        .rpc()
+
+      await expect(
+        programStaking.methods
+          .claimRewards(PDA_stakingInfo_bump)
+          .accounts({
+            mintAccount: mint,
+            authority: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Staking temporarily paused')
+    })
+
+    it('should failed when staking has not started yet', async () => {
+      await setClock(context, STAKING_START_TIME.sub(new BN(1)))
+      await expect(
+        programStaking.methods
+          .claimRewards(PDA_stakingInfo_bump)
+          .accounts({
+            mintAccount: mint,
+            authority: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc(),
+      ).rejects.toThrow('Staking not started yet')
+    })
+
+    it('Should successfully', async () => {
+      const ATA_user1_before = await getAccount(connection, ATA_user1, undefined, TOKEN_2022_PROGRAM_ID)
+      const ATA_stakingVault_before = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
+
+      let userInfo = await programStaking.account.userInfo.fetch(PDA_user1)
+      let stakingInfo = await programStaking.account.stakingInfo.fetch(PDA_stakingInfo)
+      const expectedRewards = calculateRewards(stakingInfo, userInfo, DURATION_3_MONTHS)
+
+      // Move timestamp 3 months
+      await setClock(context, STAKING_START_TIME.add(DURATION_3_MONTHS))
+      await programStaking.methods
+        .claimRewards(PDA_stakingInfo_bump)
+        .accounts({
+          mintAccount: mint,
+          authority: user1.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([user1])
+        .rpc()
+
+      let ATA_user1_after = await getAccount(connection, ATA_user1, undefined, TOKEN_2022_PROGRAM_ID)
+      let ATA_stakingVault_after = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
+
+      expect((ATA_user1_after.amount - ATA_user1_before.amount).toString()).toEqual(expectedRewards.toString())
+      expect((ATA_stakingVault_before.amount - ATA_stakingVault_after.amount).toString()).toEqual(
+        expectedRewards.toString(),
+      )
+
+      stakingInfo = await programStaking.account.stakingInfo.fetch(PDA_stakingInfo)
+      expect(stakingInfo.totalStaked.eq(TOKEN_100)).toBeTruthy()
+
+      userInfo = await programStaking.account.userInfo.fetch(PDA_user1)
+      expect(userInfo.stakedAmount.eq(TOKEN_100)).toBeTruthy()
+      expect(userInfo.pendingReward.isZero()).toBeTruthy()
+      expect(userInfo.lastClaimedRewardAt.eq(STAKING_START_TIME.add(DURATION_3_MONTHS))).toBeTruthy()
+
+      // Unstake all remain tokens and close stake position after 3 months
+      await setClock(context, STAKING_START_TIME.add(DURATION_6_MONTHS.add(new BN(1))))
+      await programStaking.methods
+        .claimRewards(PDA_stakingInfo_bump)
+        .accounts({
+          mintAccount: mint,
+          authority: user1.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([user1])
+        .rpc()
+
+      ATA_user1_after = await getAccount(connection, ATA_user1, undefined, TOKEN_2022_PROGRAM_ID)
+      ATA_stakingVault_after = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
+      expect(ATA_user1_after.amount.toString()).toEqual(expectedRewards.mul(new BN(2)).toString())
+      expect(ATA_stakingVault_after.amount.toString()).toEqual(
+        TOKEN_1000.add(TOKEN_100).sub(new BN(ATA_user1_after.amount.toString())).toString(),
+      )
+
+      stakingInfo = await programStaking.account.stakingInfo.fetch(PDA_stakingInfo)
+      expect(stakingInfo.totalStaked.eq(TOKEN_100)).toBeTruthy()
+
+      userInfo = await programStaking.account.userInfo.fetch(PDA_user1)
+      expect(userInfo.stakedAmount.eq(TOKEN_100)).toBeTruthy()
+      expect(userInfo.pendingReward.isZero()).toBeTruthy()
+      expect(userInfo.lastClaimedRewardAt.eq(STAKING_START_TIME.add(DURATION_6_MONTHS).add(new BN(1)))).toBeTruthy()
+    })
+  })
+
+  describe('admin', () => {
+    beforeEach(async () => {
+      await programStaking.methods
+        .initialize(
+          STAKING_MAX_DEPOSIT_AMOUNT_PER_USER,
+          STAKING_INTEREST_RATE.toNumber(),
+          STAKING_START_TIME,
+          STAKING_END_TIME,
+        )
+        .accounts({
+          mintAccount: mint,
+          admin: admin.publicKey,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .signers([admin])
+        .rpc()
+    })
+
+    describe('depositRewards', () => {
+      it('Should failed when signer is not admin', async () => {
+        await expect(
+          programStaking.methods
+            .depositRewards(TOKEN_1000)
+            .accounts({
+              mintAccount: mint,
+              /* @ts-ignore */
+              authority: user1.publicKey,
+              tokenProgram: TOKEN_2022_PROGRAM_ID,
+            })
+            .signers([user1])
+            .rpc(),
+        ).rejects.toThrow('You are not authorized to perform this action')
+      })
+
+      it('Should failed when amount is zero', async () => {
+        await expect(
+          programStaking.methods
+            .depositRewards(new BN(0))
+            .accounts({
+              mintAccount: mint,
+              /* @ts-ignore */
+              authority: admin.publicKey,
+              tokenProgram: TOKEN_2022_PROGRAM_ID,
+            })
+            .signers([admin])
+            .rpc(),
+        ).rejects.toThrow('Amount must be greater than zero')
+      })
+
+      it('Should successfully', async () => {
+        const ATA_admin_before = await getAccount(connection, ATA_admin, undefined, TOKEN_2022_PROGRAM_ID)
+        const ATA_stakingVault_before = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
+
+        await programStaking.methods
+          .depositRewards(TOKEN_1000)
+          .accounts({
+            mintAccount: mint,
+            /* @ts-ignore */
+            authority: admin.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([admin])
+          .rpc()
+
+        const ATA_admin_after = await getAccount(connection, ATA_admin, undefined, TOKEN_2022_PROGRAM_ID)
+        const ATA_stakingVault_after = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
+
+        expect((ATA_admin_before.amount - ATA_admin_after.amount).toString()).toEqual(TOKEN_1000.toString())
+        expect((ATA_stakingVault_after.amount - ATA_stakingVault_before.amount).toString()).toEqual(
+          TOKEN_1000.toString(),
+        )
+      })
+    })
+
+    describe('emergencyWithdraw', () => {
+      beforeEach(async () => {
+        // User stake tokens
+        await programStaking.methods
+          .stake(TOKEN_100)
+          .accounts({
+            mintAccount: mint,
+            authority: user1.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([user1])
+          .rpc()
+      })
+
+      it('Should failed when signer is not admin', async () => {
+        await expect(
+          programStaking.methods
+            .emergencyWithdraw(PDA_stakingInfo_bump, TOKEN_1000)
+            .accounts({
+              mintAccount: mint,
+              /* @ts-ignore */
+              authority: user1.publicKey,
+              tokenProgram: TOKEN_2022_PROGRAM_ID,
+            })
+            .signers([user1])
+            .rpc(),
+        ).rejects.toThrow('You are not authorized to perform this action')
+      })
+
+      it('Should failed when amount is zero', async () => {
+        await expect(
+          programStaking.methods
+            .emergencyWithdraw(PDA_stakingInfo_bump, new BN(0))
+            .accounts({
+              mintAccount: mint,
+              /* @ts-ignore */
+              authority: admin.publicKey,
+              tokenProgram: TOKEN_2022_PROGRAM_ID,
+            })
+            .signers([admin])
+            .rpc(),
+        ).rejects.toThrow('Amount must be greater than zero')
+      })
+
+      it('Should failed when vault balance <= total staked', async () => {
+        await expect(
+          programStaking.methods
+            .emergencyWithdraw(PDA_stakingInfo_bump, new BN(1))
+            .accounts({
+              mintAccount: mint,
+              /* @ts-ignore */
+              authority: admin.publicKey,
+              tokenProgram: TOKEN_2022_PROGRAM_ID,
+            })
+            .signers([admin])
+            .rpc(),
+        ).rejects.toThrow('Not allowed')
+      })
+
+      it('Should failed when amount > witdrawable', async () => {
+        await programStaking.methods
+          .depositRewards(TOKEN_100)
+          .accounts({
+            mintAccount: mint,
+            /* @ts-ignore */
+            authority: admin.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([admin])
+          .rpc()
+
+        await expect(
+          programStaking.methods
+            .emergencyWithdraw(PDA_stakingInfo_bump, TOKEN_100.add(new BN(1)))
+            .accounts({
+              mintAccount: mint,
+              /* @ts-ignore */
+              authority: admin.publicKey,
+              tokenProgram: TOKEN_2022_PROGRAM_ID,
+            })
+            .signers([admin])
+            .rpc(),
+        ).rejects.toThrow('Not allowed')
+      })
+
+      it('Should successfully', async () => {
+        await programStaking.methods
+          .depositRewards(TOKEN_1000)
+          .accounts({
+            mintAccount: mint,
+            /* @ts-ignore */
+            authority: admin.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([admin])
+          .rpc()
+
+        const ATA_admin_before = await getAccount(connection, ATA_admin, undefined, TOKEN_2022_PROGRAM_ID)
+        const ATA_stakingVault_before = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
+
+        await programStaking.methods
+          .emergencyWithdraw(PDA_stakingInfo_bump, TOKEN_1000)
+          .accounts({
+            mintAccount: mint,
+            /* @ts-ignore */
+            authority: admin.publicKey,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          .signers([admin])
+          .rpc()
+
+        const ATA_admin_after = await getAccount(connection, ATA_admin, undefined, TOKEN_2022_PROGRAM_ID)
+        const ATA_stakingVault_after = await getAccount(connection, ATA_stakingVault, undefined, TOKEN_2022_PROGRAM_ID)
+
+        expect((ATA_admin_after.amount - ATA_admin_before.amount).toString()).toEqual(TOKEN_1000.toString())
+        expect((ATA_stakingVault_before.amount - ATA_stakingVault_after.amount).toString()).toEqual(
+          TOKEN_1000.toString(),
+        )
+      })
+    })
+
+    describe('toogle_pause', () => {
+      it('Should failed when signer is not admin', async () => {
+        await expect(
+          programStaking.methods
+            .tooglePause()
+            .accounts({
+              authority: user1.publicKey,
+            })
+            .signers([user1])
+            .rpc(),
+        ).rejects.toThrow('You are not authorized to perform this action')
+      })
+
+      it('Should successfully', async () => {
+        let stakingInfo = await programStaking.account.stakingInfo.fetch(PDA_stakingInfo)
+        expect(stakingInfo.isPaused).toBeFalsy()
+
+        await programStaking.methods
+          .tooglePause()
+          .accounts({
+            authority: admin.publicKey,
+          })
+          .signers([admin])
+          .rpc()
+
+        stakingInfo = await programStaking.account.stakingInfo.fetch(PDA_stakingInfo)
+        expect(stakingInfo.isPaused).toBeTruthy()
+
+        await programStaking.methods
+          .tooglePause()
+          .accounts({
+            authority: admin.publicKey,
+          })
+          .signers([admin])
+          .rpc()
+
+        stakingInfo = await programStaking.account.stakingInfo.fetch(PDA_stakingInfo)
+        expect(stakingInfo.isPaused).toBeFalsy()
+      })
     })
   })
 })
