@@ -72,11 +72,11 @@ function PoolInfo() {
       <PoolInfoItem title="APY" value={`${data ? data?.interestRate / 100 : 0}%`} />
       <PoolInfoItem
         title="START TIME"
-        value={data ? new Date(data.startTime.toNumber() / 1000).toLocaleDateString() : ''}
+        value={data ? new Date(data.startTime.toNumber() * 1000).toLocaleDateString() : ''}
       />
       <PoolInfoItem
         title="END TIME"
-        value={data ? new Date(data.endTime.toNumber() / 1000).toLocaleDateString() : ''}
+        value={data ? new Date(data.endTime.toNumber() * 1000).toLocaleDateString() : ''}
       />
     </div>
   )

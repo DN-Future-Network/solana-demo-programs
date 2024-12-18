@@ -7,7 +7,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("DsxbTv2TFuXz656i7SeqWLt2wpgVfBccLyFMA3i2tvBG");
+declare_id!("9G9s8fbeD7Q2kzS3tWeqbSDsEAkoERjThGqvcDgmVytG");
 
 #[program]
 pub mod staking {

@@ -5,25 +5,25 @@
  * IDL can be found at `target/idl/staking.json`.
  */
 export type Staking = {
-  "address": "DsxbTv2TFuXz656i7SeqWLt2wpgVfBccLyFMA3i2tvBG",
+  "address": "9G9s8fbeD7Q2kzS3tWeqbSDsEAkoERjThGqvcDgmVytG",
   "metadata": {
     "name": "staking",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Created with Anchor"
+    "description": "Staking Pool with Anchor"
   },
   "instructions": [
     {
-      "name": "claimReward",
+      "name": "claimRewards",
       "discriminator": [
-        149,
-        95,
-        181,
-        242,
-        94,
-        90,
-        158,
-        162
+        4,
+        144,
+        132,
+        71,
+        116,
+        23,
+        151,
+        80
       ],
       "accounts": [
         {
@@ -32,11 +32,117 @@ export type Staking = {
         },
         {
           "name": "toAssociatedTokenAccount",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "stakingVault",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "stakingInfo"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "userInfo",
@@ -59,7 +165,7 @@ export type Staking = {
               },
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               }
             ]
           }
@@ -89,17 +195,9 @@ export type Staking = {
           }
         },
         {
-          "name": "staker",
+          "name": "authority",
           "writable": true,
           "signer": true
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
         },
         {
           "name": "tokenProgram"
@@ -117,16 +215,16 @@ export type Staking = {
       ]
     },
     {
-      "name": "deposit",
+      "name": "depositRewards",
       "discriminator": [
-        242,
-        35,
-        198,
-        137,
-        82,
-        225,
-        242,
-        182
+        52,
+        249,
+        112,
+        72,
+        206,
+        161,
+        196,
+        1
       ],
       "accounts": [
         {
@@ -135,36 +233,116 @@ export type Staking = {
         },
         {
           "name": "fromAssociatedTokenAccount",
-          "writable": true
-        },
-        {
-          "name": "stakingVault",
-          "writable": true
-        },
-        {
-          "name": "userInfo",
           "writable": true,
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  85,
-                  83,
-                  69,
-                  82,
-                  95,
-                  83,
-                  69,
-                  69,
-                  68
-                ]
+                "kind": "account",
+                "path": "authority"
               },
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
               }
-            ]
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "stakingVault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "stakingInfo"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
           }
         },
         {
@@ -193,17 +371,12 @@ export type Staking = {
           }
         },
         {
-          "name": "staker",
+          "name": "authority",
           "writable": true,
-          "signer": true
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
+          "signer": true,
+          "relations": [
+            "stakingInfo"
+          ]
         },
         {
           "name": "tokenProgram"
@@ -221,16 +394,16 @@ export type Staking = {
       ]
     },
     {
-      "name": "depositReward",
+      "name": "emergencyWithdraw",
       "discriminator": [
-        245,
-        216,
-        9,
-        179,
-        237,
-        49,
-        165,
-        181
+        239,
+        45,
+        203,
+        64,
+        150,
+        73,
+        218,
+        92
       ],
       "accounts": [
         {
@@ -238,12 +411,118 @@ export type Staking = {
           "writable": true
         },
         {
-          "name": "fromAssociatedTokenAccount",
-          "writable": true
+          "name": "toAssociatedTokenAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "stakingVault",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "stakingInfo"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "stakingInfo",
@@ -271,17 +550,12 @@ export type Staking = {
           }
         },
         {
-          "name": "admin",
+          "name": "authority",
           "writable": true,
-          "signer": true
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
+          "signer": true,
+          "relations": [
+            "stakingInfo"
+          ]
         },
         {
           "name": "tokenProgram"
@@ -292,6 +566,10 @@ export type Staking = {
         }
       ],
       "args": [
+        {
+          "name": "bump",
+          "type": "u8"
+        },
         {
           "name": "amount",
           "type": "u64"
@@ -321,32 +599,55 @@ export type Staking = {
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  83,
-                  84,
-                  65,
-                  75,
-                  73,
-                  78,
-                  71,
-                  95,
-                  86,
-                  65,
-                  85,
-                  76,
-                  84
-                ]
-              },
-              {
                 "kind": "account",
                 "path": "stakingInfo"
               },
               {
                 "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
                 "path": "mintAccount"
               }
-            ]
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
           }
         },
         {
@@ -378,10 +679,6 @@ export type Staking = {
           "name": "admin",
           "writable": true,
           "signer": true
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
           "name": "systemProgram",
@@ -415,16 +712,16 @@ export type Staking = {
       ]
     },
     {
-      "name": "withdraw",
+      "name": "stake",
       "discriminator": [
-        183,
+        206,
+        176,
+        202,
         18,
-        70,
-        156,
-        148,
-        109,
-        161,
-        34
+        200,
+        209,
+        179,
+        108
       ],
       "accounts": [
         {
@@ -432,12 +729,118 @@ export type Staking = {
           "writable": true
         },
         {
-          "name": "toAssociatedTokenAccount",
-          "writable": true
+          "name": "fromAssociatedTokenAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "stakingVault",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "stakingInfo"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
         },
         {
           "name": "userInfo",
@@ -460,13 +863,14 @@ export type Staking = {
               },
               {
                 "kind": "account",
-                "path": "staker"
+                "path": "authority"
               }
             ]
           }
         },
         {
           "name": "stakingInfo",
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -490,13 +894,9 @@ export type Staking = {
           }
         },
         {
-          "name": "staker",
+          "name": "authority",
           "writable": true,
           "signer": true
-        },
-        {
-          "name": "rent",
-          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
           "name": "systemProgram",
@@ -512,8 +912,263 @@ export type Staking = {
       ],
       "args": [
         {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "tooglePause",
+      "discriminator": [
+        7,
+        175,
+        74,
+        41,
+        11,
+        153,
+        31,
+        122
+      ],
+      "accounts": [
+        {
+          "name": "stakingInfo",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  83,
+                  84,
+                  65,
+                  75,
+                  73,
+                  78,
+                  71,
+                  95,
+                  83,
+                  69,
+                  69,
+                  68
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "stakingInfo"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unstake",
+      "discriminator": [
+        90,
+        95,
+        107,
+        42,
+        205,
+        124,
+        50,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "mintAccount",
+          "writable": true
+        },
+        {
+          "name": "toAssociatedTokenAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "stakingVault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "stakingInfo"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "mintAccount"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "userInfo",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  85,
+                  83,
+                  69,
+                  82,
+                  95,
+                  83,
+                  69,
+                  69,
+                  68
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakingInfo",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  83,
+                  84,
+                  65,
+                  75,
+                  73,
+                  78,
+                  71,
+                  95,
+                  83,
+                  69,
+                  69,
+                  68
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "associatedTokenProgram",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": [
+        {
           "name": "bump",
           "type": "u8"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
         }
       ]
     }
@@ -559,18 +1214,18 @@ export type Staking = {
     },
     {
       "code": 6002,
+      "name": "stakingPaused",
+      "msg": "Staking temporarily paused"
+    },
+    {
+      "code": 6003,
       "name": "stakingNotStarted",
       "msg": "Staking not started yet"
     },
     {
-      "code": 6003,
+      "code": 6004,
       "name": "stakingEnded",
       "msg": "Staking already ended"
-    },
-    {
-      "code": 6004,
-      "name": "stakingNotEnded",
-      "msg": "Staking not ended yet"
     },
     {
       "code": 6005,
@@ -580,12 +1235,17 @@ export type Staking = {
     {
       "code": 6006,
       "name": "tokenAmountTooBig",
-      "msg": "Withdraw amount cannot be less than deposit"
+      "msg": "Amount cannot be greater than staked amount"
     },
     {
       "code": 6007,
-      "name": "reachMaxDeposit",
-      "msg": "Deposit reaches maximum amount"
+      "name": "reachMaxStake",
+      "msg": "Stake amount reaches maximum amount"
+    },
+    {
+      "code": 6008,
+      "name": "invalidStakingDateTimes",
+      "msg": "Invalid Start time or End time"
     }
   ],
   "types": [
@@ -599,7 +1259,7 @@ export type Staking = {
             "type": "pubkey"
           },
           {
-            "name": "depositTokenAmount",
+            "name": "totalStaked",
             "type": "u64"
           },
           {
@@ -635,7 +1295,7 @@ export type Staking = {
         "kind": "struct",
         "fields": [
           {
-            "name": "holder",
+            "name": "authority",
             "type": "pubkey"
           },
           {

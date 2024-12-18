@@ -5,8 +5,11 @@ anchor_version = "0.30.1"
 resolution = true
 skip-lint = false
 
+[programs.devnet]
+staking = "9G9s8fbeD7Q2kzS3tWeqbSDsEAkoERjThGqvcDgmVytG"
+
 [programs.localnet]
-staking = "DsxbTv2TFuXz656i7SeqWLt2wpgVfBccLyFMA3i2tvBG"
+staking = "9G9s8fbeD7Q2kzS3tWeqbSDsEAkoERjThGqvcDgmVytG"
 
 [registry]
 url = "https://api.apr.dev"

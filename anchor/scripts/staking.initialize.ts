@@ -51,8 +51,8 @@ program
       const tokenDecimals = mint.decimals
       const maxDeposit = new BN(options.maxDeposit).mul(new BN(10 ** tokenDecimals))
       const rate = options.rate
-      const startTime = new BN(options.startTime * 1000)
-      const endTime = new BN(options.endTime * 1000)
+      const startTime = new BN(options.startTime)
+      const endTime = new BN(options.endTime)
 
       const signature = await program.methods
         .initialize(maxDeposit, rate, startTime, endTime)
@@ -81,8 +81,8 @@ program
         Vault: stakingVaultATA.toString(),
         Rate: `${stakingInfoData.interestRate / 100}%`,
         'Max Deposit': stakingInfoData.maxTokenAmountPerAddress.div(new BN(10 ** tokenDecimals)).toNumber(),
-        'Start Time': new Date(stakingInfoData.startTime.toNumber() / 1000).toISOString(),
-        'End Time': new Date(stakingInfoData.endTime.toNumber() / 1000).toISOString(),
+        'Start Time': new Date(stakingInfoData.startTime.toNumber() * 1000).toISOString(),
+        'End Time': new Date(stakingInfoData.endTime.toNumber() * 1000).toISOString(),
         Tx: `https://solscan.io/tx/${signature}?cluster=devnet`,
       })
     } catch (error) {
