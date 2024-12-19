@@ -1,93 +1,37 @@
 import { PublicKey } from '@solana/web3.js'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStakingProgram, useStakingProgramAccount } from './staking-data-access'
 import { BN } from '@coral-xyz/anchor'
 import { useGetTokenAccounts } from '../account/account-data-access'
 import { Button } from '../ui/button'
 import { InputNumber } from '../ui/input-number'
+import { Range } from '../ui/range'
 
-function Stake(props: Readonly<StakingProps>) {
-  const { depositMutation } = useStakingProgramAccount({
+function Stake(props: Readonly<StakingActionProps>) {
+  const { stakeMutation } = useStakingProgramAccount({
     account: props.address,
   })
 
   return (
     <Button
       title="Stake Now!"
-      disable={depositMutation.isPending}
-      onClick={() => depositMutation.mutateAsync(new BN(123456))}
+      disable={stakeMutation.isPending}
+      onClick={() => stakeMutation.mutateAsync(props.amount)}
     />
   )
 }
 
-function UnStake(props: Readonly<StakingProps>) {
+function UnStake(props: Readonly<StakingActionProps>) {
   const { unStakeMutation } = useStakingProgramAccount({
     account: props.address,
   })
 
-  return <Button title="UnStake" disable={unStakeMutation.isPending} onClick={() => unStakeMutation.mutateAsync()} />
-}
-
-function ClaimReward(props: Readonly<StakingProps>) {
-  const { claimRewardMutation } = useStakingProgramAccount({
-    account: props.address,
-  })
-
-  const { accountQuery } = useStakingProgramAccount({
-    account: props.address,
-  })
-  const userInfo = useMemo(() => accountQuery.data ?? null, [accountQuery.data])
-
   return (
-    <>
-      <div className="flex justify-between items-center text-sm mb-2">
-        <div className="text-gray-500">Unclaimed Rewards</div>
-        <span className="font-bold text-white">{userInfo ? userInfo.pendingReward.toString() : '0'} NPG</span>
-      </div>
-      <Button
-        title="Claim Now!"
-        disable={claimRewardMutation.isPending}
-        onClick={() => claimRewardMutation.mutateAsync()}
-      />
-    </>
-  )
-}
-
-function PoolInfoItem({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="flex justify-between items-center mb-6 pb-2 border-b-4 border-gray-500">
-      <span className="text-3xl font-bold text-white">{value}</span>
-      <span className="text-base text-white">{title}</span>
-    </div>
-  )
-}
-
-function PoolInfo() {
-  const { getStakingInfo } = useStakingProgram()
-  const data = getStakingInfo.data
-
-  return (
-    <div className="mb-8">
-      <h2 className="left-0 text-3xl text-white mb-8">Pool Information</h2>
-      <PoolInfoItem title="APY" value={`${data ? data?.interestRate / 100 : 0}%`} />
-      <PoolInfoItem
-        title="START TIME"
-        value={data ? new Date(data.startTime.toNumber() * 1000).toLocaleDateString() : ''}
-      />
-      <PoolInfoItem
-        title="END TIME"
-        value={data ? new Date(data.endTime.toNumber() * 1000).toLocaleDateString() : ''}
-      />
-    </div>
-  )
-}
-
-export function RewardsPanel(props: Readonly<StakingProps>) {
-  return (
-    <div className="bg-reward p-8 rounded-3xl h-full -ml-10 flex flex-col justify-between">
-      <PoolInfo />
-      <ClaimReward address={props.address} />
-    </div>
+    <Button
+      title="UnStake"
+      disable={unStakeMutation.isPending}
+      onClick={() => unStakeMutation.mutateAsync(props.amount)}
+    />
   )
 }
 
@@ -117,7 +61,7 @@ function UserStakedBalance(props: Readonly<StakingProps>) {
   return (
     <div className="flex justify-between items-center text-sm mb-2">
       <div>Your Token Staked</div>
-      <span className="font-bold text-black">{new BN(userInfo?.stakedAmount).toString()} NPG</span>
+      <span className="font-bold text-black">{new BN(userInfo?.stakedAmount || 0).toString()} NPG</span>
     </div>
   )
 }
@@ -136,6 +80,61 @@ function UserStakeInfo(props: Readonly<StakingProps>) {
 
 export function StakePanel(props: Readonly<StakingProps>) {
   const [activeStakeTab, setActiveStakeTab] = useState(true)
+  const [maxTokenBalance, setMaxTokenBalance] = useState(0)
+  const [inputValue, setInputValue] = useState('')
+  const [rangeValue, setRangeValue] = useState(0)
+
+  const { getStakingInfo, stakingToken } = useStakingProgram()
+  const data = getStakingInfo.data
+  const query = useGetTokenAccounts({ address: props.address })
+  const token = useMemo(
+    () =>
+      query.data?.find(
+        (item) =>
+          data?.tokenMintAddress && item.account.data.parsed.info.mint.toString() === data.tokenMintAddress.toString(),
+      ),
+    [query.data, data?.tokenMintAddress],
+  )
+
+  const { accountQuery } = useStakingProgramAccount({
+    account: props.address,
+  })
+  const userInfo = useMemo(() => accountQuery.data ?? null, [accountQuery.data])
+
+  useEffect(() => {
+    if (activeStakeTab) {
+      if (token) {
+        const balance = token.account.data.parsed.info.tokenAmount.uiAmount
+        setMaxTokenBalance(balance)
+      }
+
+      return
+    }
+
+    if (stakingToken.data) {
+      const maxTokenAmount = userInfo?.stakedAmount.div(new BN(10).pow(new BN(stakingToken.data?.decimals)))
+      setMaxTokenBalance(maxTokenAmount?.toNumber() || 0)
+    }
+  }, [activeStakeTab, userInfo, token, stakingToken.data])
+
+  useEffect(() => {
+    setRangeValue(0)
+    setInputValue('')
+  }, [activeStakeTab])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value)
+  }
+
+  const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let targetValue = Number(e.target.value)
+    if (targetValue < maxTokenBalance) {
+      targetValue = Math.round(Number(e.target.value))
+    }
+
+    setRangeValue(targetValue)
+    setInputValue(targetValue.toString())
+  }
 
   return (
     <div className="bg-gradient-to-b from-stake-bg-from to-stake-bg-to p-8 pr-20 rounded-3xl h-full">
@@ -171,8 +170,16 @@ export function StakePanel(props: Readonly<StakingProps>) {
         </button>
       </div>
 
-      <InputNumber placeholder="Enter The Amount" />
-      {activeStakeTab ? <Stake address={props.address} /> : <UnStake address={props.address} />}
+      <div className="mb-4">
+        <InputNumber placeholder="Enter The Amount" value={inputValue.toString()} onChange={handleInputChange} />
+        <Range max={maxTokenBalance} value={rangeValue} onChange={handleRangeChange} />
+      </div>
+
+      {activeStakeTab ? (
+        <Stake address={props.address} amount={inputValue} />
+      ) : (
+        <UnStake address={props.address} amount={inputValue} />
+      )}
 
       <UserStakeInfo address={props.address} />
     </div>
@@ -181,4 +188,9 @@ export function StakePanel(props: Readonly<StakingProps>) {
 
 interface StakingProps {
   address: PublicKey
+}
+
+interface StakingActionProps {
+  address: PublicKey
+  amount: string
 }

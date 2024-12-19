@@ -1,7 +1,8 @@
 import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletButton } from '../solana/solana-provider'
 import { AppHero } from '../ui/ui-layout'
-import { StakePanel, RewardsPanel } from './staking-ui'
+import { RewardsPanel } from './reward-panel'
+import { StakePanel } from './stake-panel'
 
 export default function StakingFeature() {
   const { publicKey } = useWallet()
