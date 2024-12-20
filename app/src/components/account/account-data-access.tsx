@@ -50,24 +50,29 @@ export function useGetTokenAccounts({ address }: { address: PublicKey }) {
   })
 }
 
-export function useGetTokenAccount({ mint, address }: { mint: PublicKey; address: PublicKey }) {
+export function useGetTokenAccount({
+  mint,
+  address,
+  programId = TOKEN_PROGRAM_ID,
+}: {
+  mint: PublicKey | undefined
+  address: PublicKey
+  programId: PublicKey
+}) {
   const { connection } = useConnection()
-  const [accountATA] = PublicKey.findProgramAddressSync(
-    [address.toBytes(), TOKEN_PROGRAM_ID.toBytes(), mint.toBytes()],
-    ASSOCIATED_TOKEN_PROGRAM_ID,
-  )
-  const [account2022ATA] = PublicKey.findProgramAddressSync(
-    [address.toBytes(), TOKEN_2022_PROGRAM_ID.toBytes(), mint.toBytes()],
-    ASSOCIATED_TOKEN_PROGRAM_ID,
-  )
+
   return useQuery({
     queryKey: ['get-token-account', { endpoint: connection.rpcEndpoint, address }],
     queryFn: async () => {
-      const [tokenAccount, token2022Account] = await Promise.all([
-        getAccount(connection, accountATA, undefined, TOKEN_PROGRAM_ID),
-        getAccount(connection, account2022ATA, undefined, TOKEN_2022_PROGRAM_ID),
-      ])
-      return [tokenAccount, token2022Account]
+      if (!mint) {
+        return null
+      }
+
+      const [accountATA] = PublicKey.findProgramAddressSync(
+        [address.toBytes(), programId.toBytes(), mint.toBytes()],
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      )
+      return getAccount(connection, accountATA, undefined, programId)
     },
   })
 }

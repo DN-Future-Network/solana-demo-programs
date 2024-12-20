@@ -1,8 +1,7 @@
 import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletButton } from '../solana/solana-provider'
 import { AppHero } from '../ui/ui-layout'
-import { RewardsPanel } from './reward-panel'
-import { StakePanel } from './stake-panel'
+import { Stake, PoolInfo, ClaimRewards } from './features'
 
 export default function StakingFeature() {
   const { publicKey } = useWallet()
@@ -10,8 +9,11 @@ export default function StakingFeature() {
   return publicKey ? (
     <AppHero title="Staking" subtitle={''}>
       <div className="grid grid-cols-2 justify-center text-white rounded-lg shadow-lg">
-        <StakePanel address={publicKey} />
-        <RewardsPanel address={publicKey} />
+        <Stake address={publicKey} />
+        <div className="bg-reward p-8 rounded-3xl h-full -ml-10 flex flex-col justify-between">
+          <PoolInfo />
+          <ClaimRewards address={publicKey} />
+        </div>
       </div>
     </AppHero>
   ) : (

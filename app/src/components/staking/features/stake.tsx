@@ -1,13 +1,12 @@
 import { PublicKey } from '@solana/web3.js'
 import { useEffect, useMemo, useState } from 'react'
-import { useStakingProgram, useStakingProgramAccount } from './staking-data-access'
-import { BN } from '@coral-xyz/anchor'
-import { useGetTokenAccounts } from '../account/account-data-access'
-import { Button } from '../ui/button'
-import { InputNumber } from '../ui/input-number'
-import { Range } from '../ui/range'
+import { useStakingProgram, useStakingProgramAccount } from '../staking-data-access'
+import { useGetTokenAccount } from '@/components/account/account-data-access'
+import { Button, InputNumber, Range } from '@/components/ui/custom'
+import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
+import { amountToUiAmount } from '@/utils'
 
-function Stake(props: Readonly<StakingActionProps>) {
+function StakeButton(props: Readonly<StakingActionProps>) {
   const { stakeMutation } = useStakingProgramAccount({
     account: props.address,
   })
@@ -21,7 +20,7 @@ function Stake(props: Readonly<StakingActionProps>) {
   )
 }
 
-function UnStake(props: Readonly<StakingActionProps>) {
+function UnStakeButton(props: Readonly<StakingActionProps>) {
   const { unStakeMutation } = useStakingProgramAccount({
     account: props.address,
   })
@@ -35,92 +34,45 @@ function UnStake(props: Readonly<StakingActionProps>) {
   )
 }
 
-function UserTokenBalance({ mint, address }: { mint: PublicKey | undefined; address: PublicKey }) {
-  const query = useGetTokenAccounts({ address })
-  const stakeToken = useMemo(
-    () => query.data?.find((item) => mint && item.account.data.parsed.info.mint.toString() === mint.toString()),
-    [query.data, mint],
-  )
-
+function UserStakeInfoItem({ title, value }: Readonly<{ title: string; value: string }>) {
   return (
     <div className="flex justify-between items-center text-sm mb-2">
-      <div>Your Token Balance</div>
-      <span className="font-bold text-black">
-        {stakeToken?.account.data.parsed.info.tokenAmount.uiAmountString} NPG
-      </span>
+      <div>{title}</div>
+      <span className="font-bold text-black">{value}</span>
     </div>
   )
 }
 
-function UserStakedBalance(props: Readonly<StakingProps>) {
-  const { accountQuery } = useStakingProgramAccount({
-    account: props.address,
-  })
-  const userInfo = useMemo(() => accountQuery.data ?? null, [accountQuery.data])
-
-  return (
-    <div className="flex justify-between items-center text-sm mb-2">
-      <div>Your Token Staked</div>
-      <span className="font-bold text-black">{new BN(userInfo?.stakedAmount || 0).toString()} NPG</span>
-    </div>
-  )
-}
-
-function UserStakeInfo(props: Readonly<StakingProps>) {
-  const { getStakingInfo } = useStakingProgram()
-  const data = getStakingInfo.data
-
-  return (
-    <div>
-      <UserTokenBalance mint={data?.tokenMintAddress} address={props.address} />
-      <UserStakedBalance address={props.address} />
-    </div>
-  )
-}
-
-export function StakePanel(props: Readonly<StakingProps>) {
+export function Stake({ address }: Readonly<{ address: PublicKey }>) {
   const [activeStakeTab, setActiveStakeTab] = useState(true)
   const [maxTokenBalance, setMaxTokenBalance] = useState(0)
   const [inputValue, setInputValue] = useState('')
   const [rangeValue, setRangeValue] = useState(0)
 
-  const { getStakingInfo, stakingToken } = useStakingProgram()
-  const data = getStakingInfo.data
-  const query = useGetTokenAccounts({ address: props.address })
-  const token = useMemo(
-    () =>
-      query.data?.find(
-        (item) =>
-          data?.tokenMintAddress && item.account.data.parsed.info.mint.toString() === data.tokenMintAddress.toString(),
-      ),
-    [query.data, data?.tokenMintAddress],
-  )
+  const { stakingToken } = useStakingProgram()
+  const tokenAccountQuery = useGetTokenAccount({
+    mint: stakingToken.data?.address,
+    address,
+    programId: TOKEN_2022_PROGRAM_ID,
+  })
+  const tokenAccount = useMemo(() => tokenAccountQuery?.data ?? null, [tokenAccountQuery.data])
 
   const { accountQuery } = useStakingProgramAccount({
-    account: props.address,
+    account: address,
   })
   const userInfo = useMemo(() => accountQuery.data ?? null, [accountQuery.data])
 
   useEffect(() => {
-    if (activeStakeTab) {
-      if (token) {
-        const balance = token.account.data.parsed.info.tokenAmount.uiAmount
-        setMaxTokenBalance(balance)
-      }
+    setRangeValue(0)
+    setInputValue('')
 
+    if (activeStakeTab) {
+      setMaxTokenBalance(tokenAccount ? amountToUiAmount(tokenAccount.amount, stakingToken.data?.decimals) : 0)
       return
     }
 
-    if (stakingToken.data) {
-      const maxTokenAmount = userInfo?.stakedAmount.div(new BN(10).pow(new BN(stakingToken.data?.decimals)))
-      setMaxTokenBalance(maxTokenAmount?.toNumber() || 0)
-    }
-  }, [activeStakeTab, userInfo, token, stakingToken.data])
-
-  useEffect(() => {
-    setRangeValue(0)
-    setInputValue('')
-  }, [activeStakeTab])
+    setMaxTokenBalance(userInfo ? amountToUiAmount(userInfo?.stakedAmount, stakingToken.data?.decimals) : 0)
+  }, [activeStakeTab, userInfo, tokenAccount, stakingToken.data])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value)
@@ -176,18 +128,23 @@ export function StakePanel(props: Readonly<StakingProps>) {
       </div>
 
       {activeStakeTab ? (
-        <Stake address={props.address} amount={inputValue} />
+        <StakeButton address={address} amount={inputValue} />
       ) : (
-        <UnStake address={props.address} amount={inputValue} />
+        <UnStakeButton address={address} amount={inputValue} />
       )}
 
-      <UserStakeInfo address={props.address} />
+      <div>
+        <UserStakeInfoItem
+          title="Token Balance"
+          value={`${amountToUiAmount(tokenAccount?.amount, stakingToken.data?.decimals)} NPG`}
+        />
+        <UserStakeInfoItem
+          title="Token Staked"
+          value={`${amountToUiAmount(userInfo?.stakedAmount, stakingToken.data?.decimals)} NPG`}
+        />
+      </div>
     </div>
   )
-}
-
-interface StakingProps {
-  address: PublicKey
 }
 
 interface StakingActionProps {

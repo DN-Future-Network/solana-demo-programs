@@ -101,7 +101,7 @@ export function useStakingProgramAccount({ account }: { account: PublicKey }) {
         throw new Error()
       }
 
-      const bnAmount = new BN(amount).mul(new BN(10).pow(new BN(tokenDecimals)))
+      const bnAmount = new BN(Number(amount) * 10 ** tokenDecimals)
       return program.methods
         .stake(bnAmount)
         .accounts({
@@ -130,7 +130,7 @@ export function useStakingProgramAccount({ account }: { account: PublicKey }) {
         throw new Error()
       }
 
-      const bnAmount = new BN(amount).mul(new BN(10).pow(new BN(tokenDecimals)))
+      const bnAmount = new BN(Number(amount) * 10 ** tokenDecimals)
       return program.methods
         .unstake(stakingInfoBump, bnAmount)
         .accounts({
