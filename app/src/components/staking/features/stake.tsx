@@ -1,7 +1,7 @@
 import { PublicKey } from '@solana/web3.js'
 import { useEffect, useMemo, useState } from 'react'
 import { useStakingProgram, useStakingProgramAccount } from '../staking-data-access'
-import { useGetTokenAccount } from '@/components/account/account-data-access'
+import { useGetTokenBalance } from '@/components/account/account-data-access'
 import { Button, InputNumber, Range } from '@/components/ui/custom'
 import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 import { amountToUiAmount } from '@/utils'
@@ -49,13 +49,13 @@ export function Stake({ address }: Readonly<{ address: PublicKey }>) {
   const [inputValue, setInputValue] = useState('')
   const [rangeValue, setRangeValue] = useState(0)
 
-  const { stakingToken } = useStakingProgram()
-  const tokenAccountQuery = useGetTokenAccount({
-    mint: stakingToken.data?.address,
+  const { getStakingInfo, stakingToken } = useStakingProgram()
+  const userTokenBalancetQuery = useGetTokenBalance({
+    mint: getStakingInfo.data?.tokenMintAddress,
     address,
     programId: TOKEN_2022_PROGRAM_ID,
   })
-  const tokenAccount = useMemo(() => tokenAccountQuery?.data ?? null, [tokenAccountQuery.data])
+  const userTokenBalance = useMemo(() => userTokenBalancetQuery?.data?.uiAmount ?? 0, [userTokenBalancetQuery.data])
 
   const { accountQuery } = useStakingProgramAccount({
     account: address,
@@ -67,12 +67,12 @@ export function Stake({ address }: Readonly<{ address: PublicKey }>) {
     setInputValue('')
 
     if (activeStakeTab) {
-      setMaxTokenBalance(tokenAccount ? amountToUiAmount(tokenAccount.amount, stakingToken.data?.decimals) : 0)
+      setMaxTokenBalance(userTokenBalance)
       return
     }
 
-    setMaxTokenBalance(userInfo ? amountToUiAmount(userInfo?.stakedAmount, stakingToken.data?.decimals) : 0)
-  }, [activeStakeTab, userInfo, tokenAccount, stakingToken.data])
+    setMaxTokenBalance(amountToUiAmount(userInfo?.stakedAmount, stakingToken.data?.decimals))
+  }, [activeStakeTab, userInfo, userTokenBalance, stakingToken.data])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value)
@@ -89,7 +89,7 @@ export function Stake({ address }: Readonly<{ address: PublicKey }>) {
   }
 
   return (
-    <div className="bg-gradient-to-b from-stake-bg-from to-stake-bg-to p-8 pr-20 rounded-3xl h-full">
+    <>
       <div className="flex flex-col text-left">
         <h2 className="left-1 text-3xl text-black mb-0">Single Stake</h2>
         <div className="flex flex-row text-black mt-1 mb-10">
@@ -133,17 +133,12 @@ export function Stake({ address }: Readonly<{ address: PublicKey }>) {
         <UnStakeButton address={address} amount={inputValue} />
       )}
 
-      <div>
-        <UserStakeInfoItem
-          title="Token Balance"
-          value={`${amountToUiAmount(tokenAccount?.amount, stakingToken.data?.decimals)} NPG`}
-        />
-        <UserStakeInfoItem
-          title="Token Staked"
-          value={`${amountToUiAmount(userInfo?.stakedAmount, stakingToken.data?.decimals)} NPG`}
-        />
-      </div>
-    </div>
+      <UserStakeInfoItem title="Token Balance" value={`${userTokenBalance} NPG`} />
+      <UserStakeInfoItem
+        title="Token Staked"
+        value={`${amountToUiAmount(userInfo?.stakedAmount, stakingToken.data?.decimals)} NPG`}
+      />
+    </>
   )
 }
 

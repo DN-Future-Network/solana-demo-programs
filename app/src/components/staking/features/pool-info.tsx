@@ -1,6 +1,7 @@
 import { amountToUiAmount } from '@/utils'
 import { useStakingProgram } from '../staking-data-access'
 import moment from 'moment'
+import { useMemo } from 'react'
 
 function toLocaleDateTimeString(timestamp: number): string {
   return moment(timestamp * 1000).format('DD/MM/YYYY hh:mm')
@@ -16,17 +17,29 @@ function PoolInfoItem(props: Readonly<PoolInfoItemProps>) {
 }
 
 export function PoolInfo() {
-  const { getStakingInfo } = useStakingProgram()
-  const data = getStakingInfo.data
+  const { getStakingInfo, stakingToken } = useStakingProgram()
+  const stakingInfo = useMemo(() => getStakingInfo.data, [getStakingInfo.data])
 
   return (
-    <div className="mb-8">
-      <h2 className="left-0 text-3xl text-white mb-8">Pool Information</h2>
-      <PoolInfoItem title="APY" value={`${data ? data?.interestRate / 100 : 0}%`} />
-      <PoolInfoItem title="TOTAL STAKED" value={`${amountToUiAmount(data?.totalStaked)} NPG`} />
-      <PoolInfoItem title="LIMIT" value={`${amountToUiAmount(data?.maxTokenAmountPerAddress)} NPG`} />
-      <PoolInfoItem title="START TIME" value={data ? toLocaleDateTimeString(data.startTime.toNumber()) : ''} />
-      <PoolInfoItem title="END TIME" value={data ? toLocaleDateTimeString(data.endTime.toNumber()) : ''} />
+    <div className="flex flex-col justify-between mb-8">
+      <h2 className="text-3xl text-white mb-8">Pool Information</h2>
+      <PoolInfoItem title="APY" value={`${stakingInfo ? stakingInfo?.interestRate / 100 : 0}%`} />
+      <PoolInfoItem
+        title="TOTAL STAKED"
+        value={`${amountToUiAmount(stakingInfo?.totalStaked, stakingToken.data?.decimals)} NPG`}
+      />
+      <PoolInfoItem
+        title="LIMIT"
+        value={`${amountToUiAmount(stakingInfo?.maxTokenAmountPerAddress, stakingToken.data?.decimals)} NPG`}
+      />
+      <PoolInfoItem
+        title="START TIME"
+        value={stakingInfo ? toLocaleDateTimeString(stakingInfo.startTime.toNumber()) : ''}
+      />
+      <PoolInfoItem
+        title="END TIME"
+        value={stakingInfo ? toLocaleDateTimeString(stakingInfo.endTime.toNumber()) : ''}
+      />
     </div>
   )
 }

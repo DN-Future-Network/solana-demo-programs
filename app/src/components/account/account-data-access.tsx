@@ -1,4 +1,10 @@
-import { getAccount, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import {
+  getAccount,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from '@solana/spl-token'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import {
   Connection,
@@ -53,11 +59,15 @@ export function useGetTokenAccounts({ address }: { address: PublicKey }) {
 export function useGetTokenAccount({
   mint,
   address,
+  allowOwnerOffCurve = false,
   programId = TOKEN_PROGRAM_ID,
+  associatedTokenProgramId = ASSOCIATED_TOKEN_PROGRAM_ID,
 }: {
   mint: PublicKey | undefined
   address: PublicKey
-  programId: PublicKey
+  allowOwnerOffCurve?: boolean
+  programId?: PublicKey
+  associatedTokenProgramId?: PublicKey
 }) {
   const { connection } = useConnection()
 
@@ -68,11 +78,50 @@ export function useGetTokenAccount({
         return null
       }
 
-      const [accountATA] = PublicKey.findProgramAddressSync(
-        [address.toBytes(), programId.toBytes(), mint.toBytes()],
-        ASSOCIATED_TOKEN_PROGRAM_ID,
+      const accountATA = getAssociatedTokenAddressSync(
+        mint,
+        address,
+        allowOwnerOffCurve, // true if allow the owner account to be a PDA
+        programId,
+        associatedTokenProgramId,
       )
       return getAccount(connection, accountATA, undefined, programId)
+    },
+  })
+}
+
+export function useGetTokenBalance({
+  mint,
+  address,
+  allowOwnerOffCurve = false,
+  programId = TOKEN_PROGRAM_ID,
+  associatedTokenProgramId = ASSOCIATED_TOKEN_PROGRAM_ID,
+}: {
+  mint: PublicKey | undefined
+  address: PublicKey
+  allowOwnerOffCurve?: boolean
+  programId?: PublicKey
+  associatedTokenProgramId?: PublicKey
+}) {
+  const { connection } = useConnection()
+
+  return useQuery({
+    queryKey: ['get-token-balance', { endpoint: connection.rpcEndpoint, address }],
+    queryFn: async () => {
+      if (!mint) {
+        return null
+      }
+
+      const accountATA = getAssociatedTokenAddressSync(
+        mint,
+        address,
+        allowOwnerOffCurve, // true if allow the owner account to be a PDA
+        programId,
+        associatedTokenProgramId,
+      )
+
+      const tokenBalance = await connection.getTokenAccountBalance(accountATA)
+      return tokenBalance?.value || null
     },
   })
 }

@@ -1,18 +1,17 @@
 import { getStakingProgram, getStakingProgramId } from './program'
 import { useConnection } from '@solana/wallet-adapter-react'
-import { BN } from '@coral-xyz/anchor'
+import { AnchorError, BN } from '@coral-xyz/anchor'
 import { Cluster, PublicKey } from '@solana/web3.js'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useMemo } from 'react'
 import toast from 'react-hot-toast'
 import { useCluster } from '../cluster/cluster-data-access'
 import { useAnchorProvider } from '../solana/solana-provider'
 import { useTransactionToast } from '../ui/ui-layout'
-import { ASSOCIATED_TOKEN_PROGRAM_ID, getMint, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
+import { getAssociatedTokenAddressSync, getMint, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 
 const STAKING_SEED = 'STAKING_SEED'
-const STAKING_VAULT = 'STAKING_VAULT'
 const USER_SEED = 'USER_SEED'
 
 export function useStakingProgram() {
@@ -38,11 +37,13 @@ export function useStakingProgram() {
       return null
     }
 
-    return PublicKey.findProgramAddressSync(
-      [Buffer.from(STAKING_VAULT), stakingInfoPDA.toBuffer(), getStakingInfo.data.tokenMintAddress.toBuffer()],
-      programId,
-    )[0]
-  }, [getStakingInfo.data, stakingInfoPDA, programId])
+    return getAssociatedTokenAddressSync(
+      getStakingInfo.data.tokenMintAddress,
+      stakingInfoPDA,
+      true, // Allow the owner account to be a PDA
+      TOKEN_2022_PROGRAM_ID,
+    )
+  }, [getStakingInfo.data, stakingInfoPDA])
 
   const stakingToken = useQuery({
     queryKey: ['staking', 'fetch-token', { cluster }],
@@ -69,30 +70,29 @@ export function useStakingProgram() {
 
 export function useStakingProgramAccount({ account }: { account: PublicKey }) {
   const { cluster } = useCluster()
+  const client = useQueryClient()
   const transactionToast = useTransactionToast()
-  const { program, programId, getStakingInfo, stakingInfoBump, stakingVaultATA, stakingToken } = useStakingProgram()
-  const userTokenAccount = useMemo(() => {
+  const { program, programId, getStakingInfo, stakingInfoBump, stakingInfoPDA, stakingToken } = useStakingProgram()
+  const [userInfoPDA] = PublicKey.findProgramAddressSync([Buffer.from(USER_SEED), account.toBuffer()], programId)
+
+  const isAdmin = useMemo(() => {
     if (!getStakingInfo.data) {
       return null
     }
 
-    return PublicKey.findProgramAddressSync(
-      [account.toBytes(), TOKEN_2022_PROGRAM_ID.toBytes(), getStakingInfo.data.tokenMintAddress.toBytes()],
-      ASSOCIATED_TOKEN_PROGRAM_ID,
-    )[0]
-  }, [account, getStakingInfo.data])
-
-  const [userPDAAccount] = PublicKey.findProgramAddressSync([Buffer.from(USER_SEED), account.toBuffer()], programId)
+    return getStakingInfo.data.authority.equals(account)
+  }, [getStakingInfo.data, account])
 
   const accountQuery = useQuery({
     queryKey: ['staking', 'fetch-user', { cluster, account }],
-    queryFn: () => program.account.userInfo.fetch(userPDAAccount),
+    queryFn: () => program.account.userInfo.fetch(userInfoPDA),
   })
 
+  // USER MUTATIONS
   const stakeMutation = useMutation({
-    mutationKey: ['staking', 'deposit', { cluster, account }],
+    mutationKey: ['staking', 'stake', { cluster, account }],
     mutationFn: (amount: string) => {
-      if (!getStakingInfo.data || !stakingVaultATA || !userTokenAccount || !stakingToken) {
+      if (!getStakingInfo.data || !stakingToken) {
         throw new Error()
       }
 
@@ -113,15 +113,23 @@ export function useStakingProgramAccount({ account }: { account: PublicKey }) {
     },
     onSuccess: (tx: string) => {
       transactionToast(tx)
-      return Promise.all([getStakingInfo.refetch(), accountQuery.refetch()])
+      return Promise.all([
+        getStakingInfo.refetch(),
+        accountQuery.refetch(),
+        client.invalidateQueries({
+          queryKey: ['get-token-balance', { endpoint: cluster.endpoint, address: account }],
+        }),
+      ])
     },
-    onError: () => toast.error('Failed to deposit'),
+    onError: (error: AnchorError) => {
+      toast.error(error?.error?.errorMessage ?? 'Failed to stake')
+    },
   })
 
   const unStakeMutation = useMutation({
     mutationKey: ['staking', 'unstake', { cluster, account }],
     mutationFn: (amount: string) => {
-      if (!getStakingInfo.data || !stakingVaultATA || !userTokenAccount || !stakingToken) {
+      if (!getStakingInfo.data || !stakingToken) {
         throw new Error()
       }
 
@@ -142,15 +150,23 @@ export function useStakingProgramAccount({ account }: { account: PublicKey }) {
     },
     onSuccess: (tx: string) => {
       transactionToast(tx)
-      return Promise.all([getStakingInfo.refetch(), accountQuery.refetch()])
+      return Promise.all([
+        getStakingInfo.refetch(),
+        accountQuery.refetch(),
+        client.invalidateQueries({
+          queryKey: ['get-token-balance', { endpoint: cluster.endpoint, address: account }],
+        }),
+      ])
     },
-    onError: () => toast.error('Failed to unstake'),
+    onError: (error: AnchorError) => {
+      toast.error(error?.error?.errorMessage ?? 'Failed to unstake')
+    },
   })
 
   const claimRewardMutation = useMutation({
     mutationKey: ['staking', 'claim-reward', { cluster, account }],
     mutationFn: () => {
-      if (!getStakingInfo.data || !stakingVaultATA || !userTokenAccount) {
+      if (!getStakingInfo.data) {
         throw new Error()
       }
 
@@ -167,13 +183,119 @@ export function useStakingProgramAccount({ account }: { account: PublicKey }) {
       transactionToast(tx)
       return Promise.all([getStakingInfo.refetch(), accountQuery.refetch()])
     },
-    onError: () => toast.error('Failed to claim reward'),
+    onError: (error: AnchorError) => {
+      toast.error(error?.error?.errorMessage ?? 'Failed to claim rewards')
+    },
+  })
+
+  // ADMIN MUTATIONS
+  const depositRewardsMutation = useMutation({
+    mutationKey: ['staking', 'deposit-rewards', { cluster, account }],
+    mutationFn: (amount: string) => {
+      if (!getStakingInfo.data || !stakingToken) {
+        throw new Error()
+      }
+
+      const tokenDecimals = stakingToken.data?.decimals
+      if (!tokenDecimals) {
+        throw new Error()
+      }
+
+      const bnAmount = new BN(Number(amount) * 10 ** tokenDecimals)
+      return program.methods
+        .depositRewards(bnAmount)
+        .accounts({
+          mintAccount: getStakingInfo.data.tokenMintAddress,
+          // @ts-expect-error Anchor build error
+          authority: account,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .rpc()
+    },
+    onSuccess: (tx: string) => {
+      transactionToast(tx)
+      return Promise.all([
+        getStakingInfo.refetch(),
+        client.invalidateQueries({
+          queryKey: ['get-token-balance', { endpoint: cluster.endpoint, address: account }],
+        }),
+        client.invalidateQueries({
+          queryKey: ['get-token-balance', { endpoint: cluster.endpoint, address: stakingInfoPDA }],
+        }),
+      ])
+    },
+    onError: (error: AnchorError) => {
+      toast.error(error?.error?.errorMessage ?? 'Failed to deposit rewards')
+    },
+  })
+
+  const emergencyWithdrawMutation = useMutation({
+    mutationKey: ['staking', 'emergency-withdraw', { cluster, account }],
+    mutationFn: (amount: string) => {
+      if (!getStakingInfo.data || !stakingToken) {
+        throw new Error()
+      }
+
+      const tokenDecimals = stakingToken.data?.decimals
+      if (!tokenDecimals) {
+        throw new Error()
+      }
+
+      const bnAmount = new BN(Number(amount) * 10 ** tokenDecimals)
+      return program.methods
+        .emergencyWithdraw(stakingInfoBump, bnAmount)
+        .accounts({
+          mintAccount: getStakingInfo.data.tokenMintAddress,
+          // @ts-expect-error Anchor build error
+          authority: account,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .rpc()
+    },
+    onSuccess: (tx: string) => {
+      transactionToast(tx)
+      return Promise.all([
+        getStakingInfo.refetch(),
+        client.invalidateQueries({
+          queryKey: ['get-token-balance', { endpoint: cluster.endpoint, address: account }],
+        }),
+        client.invalidateQueries({
+          queryKey: ['get-token-balance', { endpoint: cluster.endpoint, address: stakingInfoPDA }],
+        }),
+      ])
+    },
+    onError: (error: AnchorError) => {
+      toast.error(error?.error?.errorMessage ?? 'Failed to withdraw rewards')
+    },
+  })
+
+  const tooglePauseMutation = useMutation({
+    mutationKey: ['staking', 'toogle-pause', { cluster, account }],
+    mutationFn: () => {
+      return program.methods
+        .tooglePause()
+        .accounts({
+          authority: account,
+        })
+        .rpc()
+    },
+    onSuccess: (tx: string) => {
+      transactionToast(tx)
+      return Promise.all([getStakingInfo.refetch()])
+    },
+    onError: (error: AnchorError) => {
+      toast.error(error?.error?.errorMessage ?? 'Failed to toogle pause staking pool')
+    },
   })
 
   return {
+    isAdmin,
     accountQuery,
     stakeMutation,
     unStakeMutation,
     claimRewardMutation,
+    depositRewardsMutation,
+    emergencyWithdrawMutation,
+    tooglePauseMutation,
   }
 }
