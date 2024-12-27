@@ -9,6 +9,7 @@ skip-lint = false
 staking = "9G9s8fbeD7Q2kzS3tWeqbSDsEAkoERjThGqvcDgmVytG"
 
 [programs.localnet]
+even_odd_game = "AE4H2WjxmL8HKkefPffGbFYa5w97MgDVtnJG2UdCzX6x"
 presale = "HzSvVixk8DzPE3wwL1UgAGWV5krBVKRUpxFwdqn72hAv"
 staking = "9G9s8fbeD7Q2kzS3tWeqbSDsEAkoERjThGqvcDgmVytG"
 
